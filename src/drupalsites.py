@@ -58,10 +58,10 @@ class Site:
     
   def remote_backup(self):
     print "Doing remote_backup for site {0}".format(self.name)
-    cmd = 'cd {} && rm {}/manual/snapshot*'.format(self.vps_dir, self.bam_files)
+    cmd = 'cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz'.format(self.vps_dir, self.bam_files, self.bam_files)
     self.ssh_cmd(cmd)
     cmd = 'cd {} && drush bam-backup db manual snapshot'.format(self.vps_dir)
-    self.ssh_cmd(cmd)
+    self.ssh_cmd(cmd, tty=True)
     
   def local_restore(self):
     print "Doing local_restore for site {0}".format(self.name)
@@ -88,8 +88,11 @@ class Site:
     else:
       print self.stdoutdata
     
-  def ssh_cmd(self, cmd, check_error = True):
-    args = ['ssh', self.ssh_alias, cmd]
+  def ssh_cmd(self, cmd, check_error = True, tty = False):
+    if tty:
+      args = ['ssh', '-t', self.ssh_alias, cmd]
+    else:
+      args = ['ssh', self.ssh_alias, cmd]
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
@@ -99,25 +102,16 @@ class Site:
     else:
       print self.stdoutdata
 
-def foo():
-  args = ['ssh', 'gh', 'cd www && ls']
-  
-  p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  (stdoutdata, stderrdata) = p.communicate()
-  if p.returncode != 0:
-    print "***ERROR***"
-    print stderrdata
-  else:
-    print stdoutdata
-
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Manage drupal sites')
-  parser.add_argument('--foo', action='store_true')
   parser.add_argument('-v','--verbose', action='store_true')
   parser.add_argument('--sites', nargs='*')
   parser.add_argument('--op')
   errors = 0
   try:
+    if len(sys.argv) == 1:
+      parser.print_help()
+      sys.exit(1)
     args = parser.parse_args()
     import inspect
     if not inspect.ismethod(getattr(Site, args.op, None)):
