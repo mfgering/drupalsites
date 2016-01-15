@@ -98,7 +98,7 @@ class LocalRestore(Operation):
     self.site = site
 
   def do_cmd(self):
-    cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.doc_root)
+    cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
     self.sys_cmd(cmd)
 
 class RemotePull(Operation):
@@ -131,7 +131,7 @@ class RemoteUpdateDB(Operation):
     self.site = site
 
   def do_cmd(self):
-    self.ssh_cmd("drush --root={} --yes updatedb".format(self.site.vps_dir))
+    self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
 
 class LocalUpdates(Operation):
   name = 'local_updates'
