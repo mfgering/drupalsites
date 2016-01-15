@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-#TODO: Command line checking for no commands should print help info
-
+import abc
 import os
 import os.path
 import subprocess
@@ -20,62 +19,14 @@ def init_sites():
   sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs')
   return sites
 
-class Site:
-  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
-    self.name = name
-    self.ssh_alias = ssh_alias
-    self.doc_root = doc_root
-    self.vps_dir = vps_dir
-    self.bam_files = bam_files
-    if not os.path.exists(doc_root):
-      raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
-
-  def remote_to_local_restore(self):
-    self.remote_backup()
-    self.remote_to_local_bam_files()
-    self.local_restore()
-
-  def remote_to_local_bam_files(self):
-    cmd = "rsync -r {}:{}/{}/ {}/{}/".format(self.ssh_alias, 
-      self.vps_dir, self.bam_files, self.doc_root, self.bam_files)
-    self.sys_cmd(cmd)
-    
-  def do_local_updates(self):
-    print "Starting local updates for '{0}'".format(self.name)
-    self.sys_cmd('git pull')
-    self.sys_cmd('drush --yes up', check_error=False)
-    self.sys_cmd('git checkout .gitignore')
-    self.sys_cmd('git add *')
-    self.sys_cmd('git reset -- sites/default/settings.php')
-    self.sys_cmd('git commit -a -m "updates"', check_error=False)
-    self.sys_cmd('git push')
-    print "Finished local updates for '{0}'".format(self.name)
-
-  def remote_updates(self):
-    self.remote_backup()
-    self.remote_pull()
-    self.remote_update_db()
-    
-  def remote_backup(self):
-    print "Doing remote_backup for site {0}".format(self.name)
-    cmd = 'cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz'.format(self.vps_dir, self.bam_files, self.bam_files)
-    self.ssh_cmd(cmd)
-    cmd = 'cd {} && drush bam-backup db manual snapshot'.format(self.vps_dir)
-    self.ssh_cmd(cmd, tty=True)
-    
-  def local_restore(self):
-    print "Doing local_restore for site {0}".format(self.name)
-    cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.doc_root)
-    self.sys_cmd(cmd)
-    
-  def remote_pull(self):
-    print "Doing remote_pull for site {0}".format(self.name)
-    self.ssh_cmd('cd '+self.vps_dir+' && git pull')
-
-  def remote_update_db(self):
-    print "Doing remote_update_db for site {0}".format(self.name)
-    self.ssh_cmd('cd '+self.vps_dir+' && drush --yes updatedb')
-    
+class Operation:
+  name = None
+  
+  @abc.abstractmethod
+  def do_cmd(self):
+    """Perform a command"""
+    return
+  
   def sys_cmd(self, cmd, check_error = True):
     os.chdir(self.doc_root)
     args = shlex.split(cmd)
@@ -90,9 +41,9 @@ class Site:
     
   def ssh_cmd(self, cmd, check_error = True, tty = False):
     if tty:
-      args = ['ssh', '-t', self.ssh_alias, cmd]
+      args = ['ssh', '-t', self.site.ssh_alias, cmd]
     else:
-      args = ['ssh', self.ssh_alias, cmd]
+      args = ['ssh', self.site.ssh_alias, cmd]
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
@@ -101,6 +52,128 @@ class Site:
       print self.stderrdata
     else:
       print self.stdoutdata
+
+class Remote2LocalRestore(Operation):
+  name = 'remote_to_local_restore'
+  desc = 'Snapshot remote, sync backupfiles to local, restore snapshot on local'
+
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    RemoteBackup(self.site).do_cmd()
+    Remote2LocalBamFiles(self.site).do_cmd()
+    LocalRestore(self.site).do_cmd()
+
+class RemoteBackup(Operation):
+  name = 'remote_backup'
+  desc = 'Snapshot remote (snapshot.mysql.gz in manual directory)'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    cmd = 'cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz'.format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
+    self.ssh_cmd(cmd)
+    cmd = 'cd {} && drush bam-backup db manual snapshot'.format(self.site.vps_dir)
+    self.ssh_cmd(cmd, tty=True)
+  
+class Remote2LocalBamFiles(Operation):
+  name = 'remote_to_local_bam_files'
+  desc = 'Sync remote backup files to local system'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    cmd = "rsync -r {}:{}/{}/ {}/{}/".format(self.site.ssh_alias, 
+      self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
+    self.sys_cmd(cmd)
+
+class LocalRestore(Operation):
+  name = 'local_restore'
+  desc = 'Restore db from snapshot in manual backup directory'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.doc_root)
+    self.sys_cmd(cmd)
+
+class RemotePull(Operation):
+  name = 'remote_pull'
+  desc = 'Do git pull on remote system'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    self.ssh_cmd('git -C {} pull'.format(self.site.site.vps_dir))
+
+class RemoteUpdates(Operation):
+  name = 'remote_updates'
+  desc = 'Do git pull on remote system'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    RemoteBackup(self.site).do_cmd()
+    RemotePull(self.site).do_cmd()
+    RemoteUpdateDB(self.site).do_cmd()
+
+class RemoteUpdateDB(Operation):
+  name = 'remote_update_db'
+  desc = 'Remote drush updatedb'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    self.ssh_cmd("drush --root={} --yes updatedb".format(+self.site.vps_dir))
+
+class LocalUpdates(Operation):
+  name = 'local_updates'
+  desc = 'Pull from master, update modules, commit and push to master'
+  
+  def __init__(self, site):
+    self.site = site
+
+  def do_cmd(self):
+    self.sys_cmd('git -C {} pull'.format(self.site.doc_root))
+    self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
+    self.sys_cmd('git -C {} checkout .gitignore'.format(self.site.doc_root))
+    self.sys_cmd('git -C {} add *'.format(self.site.doc_root))
+    self.sys_cmd('git -C {} reset -- sites/default/settings.php'.format(self.site.doc_root))
+    self.sys_cmd('git -C {} commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
+    self.sys_cmd('git -C {} push'.format(self.site.doc_root))
+  
+class Site:
+  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
+    self.name = name
+    self.ssh_alias = ssh_alias
+    self.doc_root = doc_root
+    self.vps_dir = vps_dir
+    self.bam_files = bam_files
+    if not os.path.exists(doc_root):
+      raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
+
+OperationClasses = [Remote2LocalRestore,
+  RemoteBackup,
+  Remote2LocalBamFiles,
+  LocalRestore,
+  RemotePull,
+  RemoteUpdates,
+  RemoteUpdateDB,
+  LocalUpdates
+]
+
+Operations = {}
+
+def init_operations():
+  for operation in OperationClasses:
+    Operations[operation.name] = operation
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Manage drupal sites')
@@ -113,32 +186,26 @@ if __name__ == "__main__":
       parser.print_help()
       sys.exit(1)
     args = parser.parse_args()
-    import inspect
-    if not inspect.ismethod(getattr(Site, args.op, None)):
+    init_operations()
+    if not Operations.has_key(args.op):
       print "Operation {0} is not recognized.".format(args.op)
       errors += 1
-    if args.foo:
-      foo()
-    else:
-      sites = init_sites()
-      sites_to_do = set()
-      for site_name in args.sites:
-        if site_name == 'all':
-          sites_to_do = sets.Set(sites.values())
+    sites = init_sites()
+    sites_to_do = set()
+    for site_name in args.sites:
+      if site_name == 'all':
+        sites_to_do = sets.Set(sites.values())
+      else:
+        if sites.has_key(site_name):
+          sites_to_do.add(sites[site_name])
         else:
-          if sites.has_key(site_name):
-            sites_to_do.add(sites[site_name])
-          else:
-            print "No site named '{0}'".format(site_name)
-            errors += 1
-      if errors == 0:
-        for site in sites_to_do:
-          op_fn = getattr(site, args.op, None)
-          if op_fn is not None:
-            op_fn()
-          else:
-            print "Can't perform '{0}' on site '{1}'".format(args.op, site.name)
-            errors += 1
+          print "No site named '{0}'".format(site_name)
+          errors += 1
+    if errors == 0:
+      for site in sites_to_do:
+        operation_cls = Operations[args.op]
+        operation = operation_cls(site)
+        operation.do_cmd()
   finally:
     if errors == 0:
       print("Done")
