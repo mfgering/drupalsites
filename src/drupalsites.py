@@ -28,7 +28,7 @@ class Operation:
     return
   
   def sys_cmd(self, cmd, check_error = True):
-    os.chdir(self.doc_root)
+    os.chdir(self.site.doc_root)
     args = shlex.split(cmd)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (self.stdoutdata, self.stderrdata) = p.communicate()
@@ -109,11 +109,11 @@ class RemotePull(Operation):
     self.site = site
 
   def do_cmd(self):
-    self.ssh_cmd('git -C {} pull'.format(self.site.site.vps_dir))
+    self.ssh_cmd('cd {} && git pull'.format(self.site.vps_dir))
 
 class RemoteUpdates(Operation):
   name = 'remote_updates'
-  desc = 'Do git pull on remote system'
+  desc = 'Backup remote, remote git pull, remote drush updatedb'
   
   def __init__(self, site):
     self.site = site
@@ -131,7 +131,7 @@ class RemoteUpdateDB(Operation):
     self.site = site
 
   def do_cmd(self):
-    self.ssh_cmd("drush --root={} --yes updatedb".format(+self.site.vps_dir))
+    self.ssh_cmd("drush --root={} --yes updatedb".format(self.site.vps_dir))
 
 class LocalUpdates(Operation):
   name = 'local_updates'
@@ -141,13 +141,13 @@ class LocalUpdates(Operation):
     self.site = site
 
   def do_cmd(self):
-    self.sys_cmd('git -C {} pull'.format(self.site.doc_root))
+    self.sys_cmd('git pull'.format(self.site.doc_root))
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
-    self.sys_cmd('git -C {} checkout .gitignore'.format(self.site.doc_root))
-    self.sys_cmd('git -C {} add *'.format(self.site.doc_root))
-    self.sys_cmd('git -C {} reset -- sites/default/settings.php'.format(self.site.doc_root))
-    self.sys_cmd('git -C {} commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
-    self.sys_cmd('git -C {} push'.format(self.site.doc_root))
+    self.sys_cmd('git checkout .gitignore'.format(self.site.doc_root))
+    self.sys_cmd('git add *'.format(self.site.doc_root))
+    self.sys_cmd('git reset -- sites/default/settings.php'.format(self.site.doc_root))
+    self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
+    self.sys_cmd('git push'.format(self.site.doc_root))
   
 class Site:
   def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
@@ -171,12 +171,23 @@ OperationClasses = [Remote2LocalRestore,
 
 Operations = {}
 
+def operation_help():
+  help = "Operations:\n"
+  for operation_name in Operations:
+    operation = Operations[operation_name]
+    help += "  {}\t\t{}\n".format(operation.name, operation.desc)
+  return help
+
 def init_operations():
   for operation in OperationClasses:
     Operations[operation.name] = operation
 
+init_operations()
+
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description='Manage drupal sites')
+  parser = argparse.ArgumentParser(description='Manage drupal sites',
+    epilog=operation_help(),
+    formatter_class=argparse.RawDescriptionHelpFormatter)
   parser.add_argument('-v','--verbose', action='store_true')
   parser.add_argument('--sites', nargs='*')
   parser.add_argument('--op')
@@ -186,7 +197,6 @@ if __name__ == "__main__":
       parser.print_help()
       sys.exit(1)
     args = parser.parse_args()
-    init_operations()
     if not Operations.has_key(args.op):
       print "Operation {0} is not recognized.".format(args.op)
       errors += 1
