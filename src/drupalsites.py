@@ -19,6 +19,16 @@ def init_sites():
   sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs')
   return sites
 
+def trace_op(func):
+  def func_wrapper(self):
+    site_str = ''
+    if hasattr(self, 'site'):
+      site_str = "{}: ".format(self.site.name)
+    print "{}Starting {}".format(site_str, self.name)
+    func(self)
+    print "{}Ending {}".format(site_str, self.name)
+  return func_wrapper
+
 class Operation:
   name = None
   
@@ -60,6 +70,7 @@ class Remote2LocalRestore(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     RemoteBackup(self.site).do_cmd()
     Remote2LocalBamFiles(self.site).do_cmd()
@@ -72,12 +83,13 @@ class RemoteBackup(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     cmd = 'cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz'.format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
     self.ssh_cmd(cmd)
     cmd = 'cd {} && drush bam-backup db manual snapshot'.format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
-  
+
 class Remote2LocalBamFiles(Operation):
   name = 'remote_to_local_bam_files'
   desc = 'Sync remote backup files to local system'
@@ -85,6 +97,7 @@ class Remote2LocalBamFiles(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     cmd = "rsync -r {}:{}/{}/ {}/{}/".format(self.site.ssh_alias, 
       self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
@@ -97,6 +110,7 @@ class LocalRestore(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
     self.sys_cmd(cmd)
@@ -108,6 +122,7 @@ class RemotePull(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     self.ssh_cmd('cd {} && git pull'.format(self.site.vps_dir))
 
@@ -118,6 +133,7 @@ class RemoteUpdates(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     RemoteBackup(self.site).do_cmd()
     RemotePull(self.site).do_cmd()
@@ -130,6 +146,7 @@ class RemoteUpdateDB(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
 
@@ -140,6 +157,7 @@ class LocalUpdates(Operation):
   def __init__(self, site):
     self.site = site
 
+  @trace_op
   def do_cmd(self):
     self.sys_cmd('git pull'.format(self.site.doc_root))
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
