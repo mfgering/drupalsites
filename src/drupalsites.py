@@ -190,11 +190,11 @@ OperationClasses = [Remote2LocalRestore,
 Operations = {}
 
 def operation_help():
-  help = "Operations:\n"
+  help_txt = "Operations:\n"
   for operation_name in Operations:
     operation = Operations[operation_name]
-    help += "  {}\t\t{}\n".format(operation.name, operation.desc)
-  return help
+    help_txt += "  {}\t\t{}\n".format(operation.name, operation.desc)
+  return help_txt
 
 def init_operations():
   for operation in OperationClasses:
