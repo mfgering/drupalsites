@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import abc
-import os
 import os.path
 import subprocess
 import shlex
@@ -222,7 +221,7 @@ if __name__ == "__main__":
     sites_to_do = set()
     for site_name in args.sites:
       if site_name == 'all':
-        sites_to_do = sets.Set(sites.values())
+        sites_to_do = set(sites.values())
       else:
         if sites.has_key(site_name):
           sites_to_do.add(sites[site_name])
