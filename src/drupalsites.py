@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Author: Mike Gering
 
 import abc
 import os.path
