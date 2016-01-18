@@ -7,6 +7,7 @@ import subprocess
 import shlex
 import argparse
 import sys
+from lxml._elementpath import ops
 
 def init_sites():
   sites = {}
@@ -176,6 +177,16 @@ class Site:
     self.bam_files = bam_files
     if not os.path.exists(doc_root):
       raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
+  
+  def get_operations(self):
+    #TODO: Complete this
+    ops = {}
+    return ops
+  
+  def get_operation(self, op_name):
+    #TODO: COMPLETE THIS
+    op = None
+    return op
 
 OperationClasses = [Remote2LocalRestore,
   RemoteBackup,
@@ -190,7 +201,11 @@ OperationClasses = [Remote2LocalRestore,
 Operations = {}
 
 def operation_help():
-  help_txt = "Operations:\n"
+  help_txt = ''
+  help_txt += "Sites:\n"
+  for site_name in sites.keys():
+    help_txt += "  {}\n".format(sites[site_name].name)
+  help_txt += "Operations:\n"
   for operation_name in Operations:
     operation = Operations[operation_name]
     help_txt += "  {}\t\t{}\n".format(operation.name, operation.desc)
@@ -203,6 +218,7 @@ def init_operations():
 init_operations()
 
 if __name__ == "__main__":
+  sites = init_sites()
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
