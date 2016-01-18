@@ -2,11 +2,12 @@
 # Author: Mike Gering
 
 import abc
-import os.path
-import subprocess
-import shlex
 import argparse
+import os.path
+import shlex
+import subprocess
 import sys
+import textwrap
 
 def init_sites():
   sites = {}
@@ -190,19 +191,33 @@ OperationClasses = [Remote2LocalRestore,
 Operations = {}
 
 def operation_help():
-  help_txt = "Operations:\n"
-  for operation_name in Operations:
+  help_txt = ''
+  help_txt += "Sites:\n"
+  for site_name in sorted(sites.keys()):
+    help_txt += "  {}\n".format(sites[site_name].name)
+  help_txt += "\nOperations (OP):\n"
+  max_op_len = max(map(len, Operations.keys()))
+  t_wrapper = textwrap.TextWrapper()
+  t_wrapper.width = 80
+  t_wrapper.initial_indent = ' ' * 2
+  t_wrapper.subsequent_indent = ' ' * (6 + max_op_len)
+  for operation_name in sorted(Operations.keys()):
     operation = Operations[operation_name]
-    help_txt += "  {}\t\t{}\n".format(operation.name, operation.desc)
+    op_help = "{}{}    {}\n".format(operation.name, 
+                                        ' ' * (max_op_len - len(operation.name)), 
+                                        operation.desc)
+    help_txt += t_wrapper.fill(op_help)+"\n"
   return help_txt
 
 def init_operations():
+  global Operations
   for operation in OperationClasses:
     Operations[operation.name] = operation
 
 init_operations()
 
 if __name__ == "__main__":
+  sites = init_sites()
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
