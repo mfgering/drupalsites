@@ -216,11 +216,54 @@ def init_operations():
 
 init_operations()
 
+def interactive():
+  site_option = None
+  op_option = None
+  site_options = ['all']
+  for site_name in sorted(sites.keys()):
+    site_options.append(site_name)
+  while site_option is None:
+    print "Sites:"
+    x = 0
+    for site_name in site_options:
+      print "  {} {}".format(x, site_name)
+      x += 1
+    site_inp = raw_input("Site [0]? ")
+    if site_inp == '':
+      site_inp = '0'
+    try:
+      site_num = int(site_inp)
+      if site_num < 0 or site_num >= len(site_options):
+        print("Invalid choice")
+      else:
+        site_option = site_options[site_num]
+    except ValueError:
+      print("Invalid number")
+  while op_option is None:
+    print("Operations:")
+    x = 0
+    op_keys = sorted(Operations.keys())
+    for op_name in op_keys:
+      print "  {} {}".format(x, op_name)
+      x += 1
+    op_inp = raw_input("Operation? ")
+    try:
+      op_num = int(op_inp)
+      if op_num < 0 or op_num >= len(Operations):
+        print("Invalid choice")
+      else:
+        op_option = op_keys[op_num]
+    except ValueError:
+      print("Invalid number")
+  return ([site_option], op_option)
+
 if __name__ == "__main__":
   sites = init_sites()
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
+  parser.add_argument('-i','--interactive', action='store_true')
+  parser.add_argument('-d','--dry-run', action='store_true')
   parser.add_argument('-v','--verbose', action='store_true')
   parser.add_argument('--sites', nargs='*')
   parser.add_argument('--op')
@@ -230,12 +273,16 @@ if __name__ == "__main__":
       parser.print_help()
       sys.exit(1)
     args = parser.parse_args()
-    if not Operations.has_key(args.op):
-      print "Operation {0} is not recognized.".format(args.op)
+    if args.interactive:
+      (site_option, op_option) = interactive()
+    else:
+      op_option = args.op
+      site_option = args.sites
+    if not Operations.has_key(op_option):
+      print "Operation {0} is not recognized.".format(op_option)
       errors += 1
-    sites = init_sites()
     sites_to_do = set()
-    for site_name in args.sites:
+    for site_name in site_option:
       if site_name == 'all':
         sites_to_do = set(sites.values())
       else:
@@ -246,9 +293,12 @@ if __name__ == "__main__":
           errors += 1
     if errors == 0:
       for site in sites_to_do:
-        operation_cls = Operations[args.op]
+        operation_cls = Operations[op_option]
         operation = operation_cls(site)
-        operation.do_cmd()
+        if args.dry_run:
+          print("Dry run for operation {} on site {}".format(operation.name, site.name))
+        else:
+          operation.do_cmd()
   finally:
     if errors == 0:
       print("Done")
