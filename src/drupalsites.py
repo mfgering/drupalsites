@@ -240,7 +240,7 @@ def interactive():
     except ValueError:
       print("Invalid number")
   while op_option is None:
-    print("Operations:")
+    print("\nOperations:")
     x = 0
     op_keys = sorted(Operations.keys())
     for op_name in op_keys:
