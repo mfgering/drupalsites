@@ -104,6 +104,19 @@ class Remote2LocalBamFiles(Operation):
       self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
     self.sys_cmd(cmd)
 
+class Remote2LocalDefaultFiles(Operation):
+  name = 'remote_to_local_rsync'
+  desc = 'Sync remote default/files to local system'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/default/files/ {}/sites/default/files/".format(self.site.ssh_alias, 
+      self.site.vps_dir, self.site.doc_root)
+    self.sys_cmd(cmd)
+
 class LocalRestore(Operation):
   name = 'local_restore'
   desc = 'Restore db from snapshot in manual backup directory'
@@ -181,6 +194,7 @@ class Site:
 OperationClasses = [Remote2LocalRestore,
   RemoteBackup,
   Remote2LocalBamFiles,
+  Remote2LocalDefaultFiles,
   LocalRestore,
   RemotePull,
   RemoteUpdates,
