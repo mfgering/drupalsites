@@ -9,6 +9,10 @@ import subprocess
 import sys
 import textwrap
 
+def set_verbose(val):
+  global verbose
+  verbose = val
+
 def init_sites():
   sites = {}
   sites['hillsborough'] = Site('hillsborough', 'hb', '/var/www/dev.ci.hillsborough.nc.us/htdocs', bam_files='sites/default/files/backup_migrate')
@@ -39,6 +43,9 @@ class Operation:
     return
   
   def sys_cmd(self, cmd, check_error = True):
+    global verbose
+    if verbose:
+      print cmd
     os.chdir(self.site.doc_root)
     args = shlex.split(cmd)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -46,23 +53,27 @@ class Operation:
     self.returncode = p.returncode
     if self.returncode != 0 and check_error:
       print "***ERROR*** for '{0}'".format(cmd)
-      print self.stderrdata
+      print self.stderrdata,
     else:
-      print self.stdoutdata
+      print self.stdoutdata,
     
   def ssh_cmd(self, cmd, check_error = True, tty = False):
     if tty:
       args = ['ssh', '-t', self.site.ssh_alias, cmd]
     else:
       args = ['ssh', self.site.ssh_alias, cmd]
+    global verbose
+    if verbose:
+      cmd = " ".join(args)
+      print cmd
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
     if self.returncode != 0 and check_error:
       print "***ERROR*** for '{0}'".format(cmd)
-      print self.stderrdata
+      print self.stderrdata,
     else:
-      print self.stdoutdata
+      print self.stdoutdata,
 
 class Remote2LocalRestore(Operation):
   name = 'remote_to_local_restore'
@@ -229,6 +240,7 @@ def init_operations():
     Operations[operation.name] = operation
 
 init_operations()
+sites = init_sites()
 
 def interactive():
   site_option = None
@@ -271,8 +283,10 @@ def interactive():
       print("Invalid number")
   return ([site_option], op_option)
 
+verbose = False
+
 if __name__ == "__main__":
-  sites = init_sites()
+  global verbose
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -287,6 +301,7 @@ if __name__ == "__main__":
       parser.print_help()
       sys.exit(1)
     args = parser.parse_args()
+    verbose = parser.verbose
     if args.interactive:
       (site_option, op_option) = interactive()
     else:

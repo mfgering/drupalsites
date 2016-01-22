@@ -1,0 +1,10 @@
+<!doctype html>
+<title>Operations</title>
+<h1>Operations</h1>
+<ul>
+{% for op in ops_dict|dictsort %}
+  {% set op_obj = op[1] %}
+  <li>{{ op_obj.name }}: {{ op_obj.desc }}</li>
+{% endfor %}
+</ul>
+

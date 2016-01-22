@@ -1,0 +1,30 @@
+<!doctype html>
+<title>Manage</title>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+  <h1>Messages</h1>
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+<form action="/perform" method="post">
+<h1>Options</h1>
+<label><input name="verbose" type="checkbox" value="verbose"/> verbose</label><br>
+<label><input name="dry-run" type="checkbox" value="dry-run"/> dry run</label>
+<h1>Operations</h1>
+{% for op in ops_dict|dictsort %}
+  {% set op_obj = op[1] %}
+  <label><input value="{{ op_obj.name }}" type="radio" name="operation"/>{{ op_obj.name }}</label><br>
+{% endfor %}
+<h1>Sites</h1>
+{% for site in sites_dict|dictsort %}
+  {% set site_obj = site[1] %}
+  <label><input type="checkbox" name="site" value="{{ site_obj.name }}"/>{{ site_obj.name }}</label><br>
+{% endfor %}
+
+<p>
+<input type="submit" value="Run">
+</form>

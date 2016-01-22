@@ -1,0 +1,3 @@
+FLASK:
+    DEBUG: False
+    DEBUG_WITH_ECLIPSE: False
