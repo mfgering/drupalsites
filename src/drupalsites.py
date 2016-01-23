@@ -29,9 +29,9 @@ def trace_op(func):
     site_str = ''
     if hasattr(self, 'site'):
       site_str = "{}: ".format(self.site.name)
-    print "{}Starting {}".format(site_str, self.name)
+    print "-----> {}Starting {}".format(site_str, self.name)
     func(self)
-    print "{}Ending {}".format(site_str, self.name)
+    print "<----- {}Ending {}".format(site_str, self.name)
   return func_wrapper
 
 class Operation:
@@ -296,10 +296,9 @@ def interactive():
       print("Invalid number")
   return ([site_option], op_option)
 
-verbose = False
+set_verbose(False)
 
 if __name__ == "__main__":
-  global verbose
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -314,7 +313,7 @@ if __name__ == "__main__":
       parser.print_help()
       sys.exit(1)
     args = parser.parse_args()
-    verbose = args.verbose
+    set_verbose(args.verbose)
     if args.interactive:
       (site_option, op_option) = interactive()
     else:
