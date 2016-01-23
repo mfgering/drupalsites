@@ -42,7 +42,7 @@ class Operation:
     """Perform a command"""
     return
   
-  def sys_cmd(self, cmd, check_error = True):
+  def sys_cmd(self, cmd, check_error = True, print_output = True):
     global verbose
     if verbose:
       print cmd
@@ -51,13 +51,14 @@ class Operation:
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
-    if self.returncode != 0 and check_error:
-      print "***ERROR*** for '{0}'".format(cmd)
-      print self.stderrdata,
-    else:
-      print self.stdoutdata,
+    if print_output:
+      if self.returncode != 0 and check_error:
+        print "***ERROR*** for '{0}'".format(cmd)
+        print self.stderrdata,
+      else:
+        print self.stdoutdata,
     
-  def ssh_cmd(self, cmd, check_error = True, tty = False):
+  def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True):
     if tty:
       args = ['ssh', '-t', self.site.ssh_alias, cmd]
     else:
@@ -69,11 +70,12 @@ class Operation:
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
-    if self.returncode != 0 and check_error:
-      print "***ERROR*** for '{0}'".format(cmd)
-      print self.stderrdata,
-    else:
-      print self.stdoutdata,
+    if print_output:
+      if self.returncode != 0 and check_error:
+        print "***ERROR*** for '{0}'".format(cmd)
+        print self.stderrdata,
+      else:
+        print self.stdoutdata,
 
 class RemoteClearCache(Operation):
   name = 'remote_cc'
@@ -213,9 +215,16 @@ class LocalUpdateStatus(Operation):
 
   @trace_op
   def do_cmd(self):
-    self.sys_cmd('git pull'.format(self.site.doc_root))
-    self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False)
-  
+    self.sys_cmd('git pull'.format(self.site.doc_root), print_output=False)
+    if self.stdoutdata.find("Already up-to-date.") < 0:
+      print "git pulled:\n"+self.stdoutdata
+    self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
+    modules_to_update = self.stdoutdata.split("\n")
+    if len(modules_to_update) > 1: # Note that the last module has a newline
+      modules_to_update.pop()
+      print "****** {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
+    else:
+      print "modules are up-to-date"
 class Site:
   def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
     self.name = name
