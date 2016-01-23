@@ -204,6 +204,18 @@ class LocalUpdates(Operation):
     self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
     self.sys_cmd('git push'.format(self.site.doc_root))
   
+class LocalUpdateStatus(Operation):
+  name = 'local_update_status'
+  desc = 'Pull from master, check for updates'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    self.sys_cmd('git pull'.format(self.site.doc_root))
+    self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False)
+  
 class Site:
   def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
     self.name = name
@@ -223,7 +235,8 @@ OperationClasses = [RemoteClearCache,
   RemotePull,
   RemoteUpdates,
   RemoteUpdateDB,
-  LocalUpdates
+  LocalUpdates,
+  LocalUpdateStatus
 ]
 
 Operations = {}
