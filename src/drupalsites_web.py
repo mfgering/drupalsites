@@ -76,16 +76,19 @@ def perform():
   return redirect(url_for('manage'))
 
 if __name__ == '__main__':
-  config_file = file('config.yaml', 'r')
-  config = yaml.load(config_file)
-  if config['FLASK']['DEBUG']:
-    app.debug = True
-    use_debugger = True
-    try:
-      use_debugger = not(config['FLASK']['DEBUG_WITH_ECLIPSE'])
-      app.use_debugger = use_debugger
-      app.use_reloader = use_debugger
-    except:
-      pass
+  try:
+    config_file = file('config.yaml', 'r')
+    config = yaml.load(config_file)
+    if config['FLASK']['DEBUG']:
+      app.debug = True
+      use_debugger = True
+      try:
+        use_debugger = not(config['FLASK']['DEBUG_WITH_ECLIPSE'])
+        app.use_debugger = use_debugger
+        app.use_reloader = use_debugger
+      except:
+        pass
+  except:
+    print "Problem openning config.yaml"
   print app
   app.run(host='0.0.0.0')

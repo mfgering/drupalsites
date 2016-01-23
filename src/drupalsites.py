@@ -75,6 +75,18 @@ class Operation:
     else:
       print self.stdoutdata,
 
+class RemoteClearCache(Operation):
+  name = 'remote_cc'
+  desc = 'Remote clear cache'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
+    self.ssh_cmd(cmd, tty=True)
+
 class Remote2LocalRestore(Operation):
   name = 'remote_to_local_restore'
   desc = 'Snapshot remote, sync backupfiles to local, restore snapshot on local'
@@ -202,7 +214,8 @@ class Site:
     if not os.path.exists(doc_root):
       raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
 
-OperationClasses = [Remote2LocalRestore,
+OperationClasses = [RemoteClearCache,
+  Remote2LocalRestore,
   RemoteBackup,
   Remote2LocalBamFiles,
   Remote2LocalDefaultFiles,
@@ -301,7 +314,7 @@ if __name__ == "__main__":
       parser.print_help()
       sys.exit(1)
     args = parser.parse_args()
-    verbose = parser.verbose
+    verbose = args.verbose
     if args.interactive:
       (site_option, op_option) = interactive()
     else:
