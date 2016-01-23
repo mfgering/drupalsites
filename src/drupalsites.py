@@ -225,6 +225,7 @@ class LocalUpdateStatus(Operation):
       print "****** {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
     else:
       print "modules are up-to-date"
+
 class Site:
   def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
     self.name = name
