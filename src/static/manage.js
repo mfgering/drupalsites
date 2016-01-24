@@ -8,23 +8,23 @@ $(document).ready(function(){
 function perform_ops() {
 	var op_name = "";
 	var selected = $('input[name="operation"]:checked');
+    $('#ajax-msgs').empty().append('<h2>Messages</h2><ul id="msg-list"></ul>');
 	if (selected.length > 0) {
+	    $('#msg-list').append('<li id="op-status">Running...</li>')
 	    op_name = selected.val();
 	    var verbose_opt = $('input[name="verbose"]')[0].checked;
 	    var dry_run_opt = $('input[name="dry-run"]')[0].checked;
-	    $('#ajax-msgs').empty().append('<h2>Messages</h2><ul id="msg-list"></ul>');
-	    $('#msg-list').append('<li id="op-status">Running...</li>')
 	    var site_names = $('input[name="site"]:checked').map(function(){return this.value;});
+	    var ajax_tracker = {remaining_ops: site_names.length};
 	    for(var s = 0; s < site_names.length; s++) {
-	    	var is_last = s == site_names.length - 1
-	    	perform_op(is_last, site_names[s], op_name, verbose_opt, dry_run_opt);
+	    	perform_op(site_names[s], op_name, verbose_opt, dry_run_opt, ajax_tracker);
 	    }
 	} else {
-		//TODO: Error -- operation not selected
+	    $('#msg-list').append('<li id="op-status">You didn\'t select an operation</li>')
 	}	
 }
 
-function perform_op(is_last, site_name, op_name, verbose_opt, dry_run_opt) {
+function perform_op(site_name, op_name, verbose_opt, dry_run_opt, ajax_tracker) {
 	$.getJSON($SCRIPT_ROOT + '/site-op', {site: site_name,
 		op: op_name, verbose: verbose_opt, dry_run: dry_run_opt},
 		function(data){
@@ -32,9 +32,13 @@ function perform_op(is_last, site_name, op_name, verbose_opt, dry_run_opt) {
 			for(i = 0; i < msgs.length; i++) {
 				$('#op-status').before('<li>'+msgs[i]+'</li>');
 			}
-			if(is_last) {
-				$('#op-status').text("Done!");
+		}).always(function(){
+			ajax_tracker.remaining_ops--;
+			var status_text = "Still running...";
+			if(ajax_tracker.remaining_ops == 0) {
+				status_text = "Done!";
 			}
+			$('#op-status').text(status_text);				
 		});
 	return false;
 }
