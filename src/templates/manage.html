@@ -2,6 +2,7 @@
 <script type=text/javascript>
   $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
 </script>
+<link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='styles.css') }}">
 <title>Manage</title>
 {% with messages = get_flashed_messages() %}
   {% if messages %}
@@ -13,7 +14,7 @@
     </ul>
   {% endif %}
 {% endwith %}
-<div id="ajax-msgs">
+<div id="ajax-msgs" class="hidden">
 </div>
 <div class="options-div">
 <h2>Options</h2>

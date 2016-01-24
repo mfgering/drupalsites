@@ -8,16 +8,20 @@ $(document).ready(function(){
 function perform_ops() {
 	var op_name = "";
 	var selected = $('input[name="operation"]:checked');
-    $('#ajax-msgs').empty().append('<h2>Messages</h2><ul id="msg-list"></ul>');
+    $('#ajax-msgs').removeClass('hidden').empty().append('<h2>Messages</h2><ul id="msg-list"></ul>');
 	if (selected.length > 0) {
-	    $('#msg-list').append('<li id="op-status">Running...</li>')
+	    var site_names = $('input[name="site"]:checked').map(function(){return this.value;});
 	    op_name = selected.val();
 	    var verbose_opt = $('input[name="verbose"]')[0].checked;
 	    var dry_run_opt = $('input[name="dry-run"]')[0].checked;
-	    var site_names = $('input[name="site"]:checked').map(function(){return this.value;});
 	    var ajax_tracker = {remaining_ops: site_names.length};
-	    for(var s = 0; s < site_names.length; s++) {
-	    	perform_op(site_names[s], op_name, verbose_opt, dry_run_opt, ajax_tracker);
+	    if (site_names.length > 0) {
+		    $('#msg-list').append('<li id="op-status">Running...</li>')
+		    for(var s = 0; s < site_names.length; s++) {
+		    	perform_op(site_names[s], op_name, verbose_opt, dry_run_opt, ajax_tracker);
+		    }
+	    } else {
+	    	$('#msg-list').append('<li id="op-status">You didn\'t select any sites</li>')
 	    }
 	} else {
 	    $('#msg-list').append('<li id="op-status">You didn\'t select an operation</li>')
