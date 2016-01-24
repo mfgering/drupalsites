@@ -34,43 +34,10 @@ def site_op():
   op_result = perform_site_op(site_name, op_name, verbose_opt, dry_run_opt)
   return jsonify(op_result)
 
-@app.route("/sites")
-def get_sites():
-  global sites
-  sites_dict = sites
-  return render_template('sites.html', sites_dict=sites_dict)
-
-@app.route("/operations")
-def get_operations():
-  global Operations
-  ops_dict = Operations
-  return render_template('operations.html', ops_dict=ops_dict)
-
 @app.route("/manage")
 def manage():
   global sites, Operations
   return render_template('manage.html', ops_dict=Operations, sites_dict=sites)
-
-@app.route("/perform", methods=["POST"])  
-def perform():
-  errors = 0
-  if request.form.has_key('operation'):
-    op_option = request.form['operation']
-  else:
-    flash("Missing operation")
-    errors += 1
-  
-  if errors == 0:
-    verbose = request.form.has_key('verbose')
-    sites_to_do = request.form.getlist("site")
-    for site_name in sites_to_do:
-      op_result = perform_site_op(site_name, op_option, verbose, 
-                                  request.form.has_key('dry-run'))
-      for msg in op_result['msgs']:
-        flash(msg)
-  else:
-    flash("No operations performed")
-  return redirect(url_for('manage'))
 
 def perform_site_op(site_name, op_name, verbose_opt, dry_run_opt):
   msgs = []
