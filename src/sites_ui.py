@@ -5,6 +5,7 @@ Created on Jan 25, 2016
 @author: mgering
 '''
 import sys
+import time
 from PySide.QtCore import *
 from PySide.QtGui import *
 from qt_sites_ui import *
@@ -22,6 +23,52 @@ def stdout_redirector(stream):
         yield
     finally:
         sys.stdout = old_stdout
+
+class SitesOpWorker(QObject):
+  def __init__(self):
+    super(SitesOpWorker, self).__init__()
+    self.start.connect(self.perform)
+  
+  start = QtCore.Signal(list, str, bool, bool)
+  finished = QtCore.Signal(str)
+  progress = QtCore.Signal(list)
+  
+  def perform(self, sites, op_name, verbose_opt, dry_run_opt):
+    print "worker perform"
+    print sites
+    print op_name
+    errors = 0
+    msgs = []
+    if op_name is None:
+      self.progress.emit(["Please select an operation"])
+      errors += 1
+    if len(sites) == 0:
+      self.progress.emit(["Please select at least one site"])
+      errors += 1
+    if errors == 0:
+      self.progress.emit(["Starting..."])
+      for site_name in sites:
+        result = self.perform_site_op(site_name, op_name, verbose_opt, dry_run_opt)
+        self.progress.emit(result['msgs']);
+    self.finished.emit("... Done!")
+    
+  def perform_site_op(self, site_name, op_name, verbose_opt, dry_run_opt):
+    msgs = []
+    site = sites[site_name]
+    operation_cls = Operations[op_name]
+    operation = operation_cls(site)
+    set_verbose(verbose_opt)
+    
+    if dry_run_opt:
+      msgs.append("Dry run for operation {} on site {}".format(operation.name, site.name))
+    else:
+      std_str = StringIO.StringIO()
+      with stdout_redirector(std_str):
+        operation.do_cmd()
+        msg = std_str.getvalue()
+        msgs.append(msg)
+        std_str.close()
+    return {'msgs': msgs}
 
 class MyManageDialog(QDialog, Ui_ManageDialog):
   def __init__(self, parent=None):
@@ -54,7 +101,19 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
       self.op_radios.append(radio)
       self.opListWidget.setItemWidget(item, radio)
     self.buttonBox.button(QtGui.QDialogButtonBox.Apply).clicked.connect(self.apply)
-  
+    
+    self.site_op_thread = QtCore.QThread()
+    self.site_op_thread.start()
+    self.worker = SitesOpWorker()
+    self.worker.moveToThread(self.site_op_thread)
+    self.finished.connect(self.stop_thread)
+    self.worker.finished.connect(self.worker_finished)
+    self.worker.progress.connect(self.worker_progress)
+#     self.site_op_thread.started.connect(worker.perform)
+    
+  def stop_thread(self):
+    self.site_op_thread.quit()
+    
   def all_sites_clicked(self):
     print "Clicked"
     pass
@@ -74,28 +133,18 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
     verbose_opt = self.verbose_check.checkState()
     dry_run_opt = self.dry_run_check.checkState()
     self.msgsTextBrowser.clear()
-    if not op is None:
-      for site_name in sites:
-        result = self.perform_site_op(site_name, op, verbose_opt, dry_run_opt)
-        self.msgsTextBrowser.append("\n".join(result['msgs']))
-        print result;
-        
-  def perform_site_op(self, site_name, op_name, verbose_opt, dry_run_opt):
-    msgs = []
-    site = sites[site_name]
-    operation_cls = Operations[op_name]
-    operation = operation_cls(site)
-    set_verbose(verbose_opt)
-    if dry_run_opt:
-      msgs.append("Dry run for operation {} on site {}".format(operation.name, site.name))
-    else:
-      std_str = StringIO.StringIO()
-      with stdout_redirector(std_str):
-        operation.do_cmd()
-        msg = std_str.getvalue()
-        msgs.append(msg)
-        std_str.close()
-    return {'msgs': msgs}
+    apply_button = self.buttonBox.button(QDialogButtonBox.Apply)
+    apply_button.setEnabled(False)
+    self.worker.start.emit(sites, op, verbose_opt, dry_run_opt)
+  
+  def worker_progress(self, msgs):
+    self.msgsTextBrowser.append("\n".join(msgs))
+  
+  def worker_finished(self, msg):
+    self.msgsTextBrowser.append(msg)
+    apply_button = self.buttonBox.button(QDialogButtonBox.Apply)
+    apply_button.setEnabled(True)
+  
 
 if __name__ == '__main__':
   # Create a Qt application
