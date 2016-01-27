@@ -34,23 +34,21 @@ class SitesOpWorker(QObject):
   progress = QtCore.Signal(list)
   
   def perform(self, sites, op_name, verbose_opt, dry_run_opt):
-    print "worker perform"
-    print sites
-    print op_name
     errors = 0
     msgs = []
-    if op_name is None:
-      self.progress.emit(["Please select an operation"])
+    if op_name == '':
+      self.progress.emit(["<span style='color: red;'><b>Please select an operation.</b></span>"])
       errors += 1
     if len(sites) == 0:
-      self.progress.emit(["Please select at least one site"])
+      self.progress.emit(["<span style='color: red;'><b>Please select at least one site.</b></span>"])
       errors += 1
     if errors == 0:
-      self.progress.emit(["Starting..."])
+      self.progress.emit(["<b>Starting...</b>"])
       for site_name in sites:
         result = self.perform_site_op(site_name, op_name, verbose_opt, dry_run_opt)
-        self.progress.emit(result['msgs']);
-    self.finished.emit("... Done!")
+        msgs = result['msgs']
+        self.progress.emit(msgs);
+    self.finished.emit("<b>... Done!</b>")
     
   def perform_site_op(self, site_name, op_name, verbose_opt, dry_run_opt):
     msgs = []
@@ -115,11 +113,10 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
     self.site_op_thread.quit()
     
   def all_sites_clicked(self):
-    print "Clicked"
-    pass
+    for site_box in self.site_checkboxes:
+      site_box.setCheckState(self.allSitesCheckBox.checkState())
   
   def apply(self):
-    print "Apply"
     sites = []
     for check in self.site_checkboxes:
       state = check.checkState()
