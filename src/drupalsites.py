@@ -42,13 +42,13 @@ class Operation(object):
     """Perform a command"""
     return
   
-  def sys_cmd(self, cmd, check_error = True, print_output = True):
+  def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False):
     global verbose
     if verbose:
       print cmd
     os.chdir(self.site.doc_root)
     args = shlex.split(cmd)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
     if print_output:
@@ -109,9 +109,9 @@ class Remote2LocalRestore(Operation):
 
   @trace_op
   def do_cmd(self):
-    RemoteBackup(self.site).do_cmd()
-    Remote2LocalBamFiles(self.site).do_cmd()
-    LocalRestore(self.site).do_cmd()
+    self.site.get_operation('remote_backup').do_cmd()
+    self.site.get_operation('remote_to_local_bam_files').do_cmd()
+    self.site.get_operation('local_restore').do_cmd()
 
 class RemoteBackup(Operation):
   name = 'remote_backup'
@@ -133,11 +133,12 @@ class HillsboroughRemoteBackup(RemoteBackup):
     
   @trace_op
   def do_cmd(self):
+    print "Doing external (www) site..."
     cmd = "cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz".format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
     self.ssh_cmd(cmd, check_error=False)
     cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
-
+    print "Doing internal (w3) site..."
     cmd = "cd {} && [ -e sites/w3.ci.hillsborough.nc.us/files/backup_migrate/manual/snapshot.mysql.gz ] && rm sites/w3.ci.hillsborough.nc.us/files/backup_migrate/manual/snapshot.mysql.gz".format(self.site.vps_dir)
     self.ssh_cmd(cmd, check_error=False)
     cmd = "cd {}/sites/w3.ci.hillsborough.nc.us && drush bam-backup db manual snapshot".format(self.site.vps_dir)
@@ -156,8 +157,20 @@ class Remote2LocalBamFiles(Operation):
       self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
     self.sys_cmd(cmd)
 
-#TODO: Need Hillsborough version of Remote2LocalBamFiles
+class HillsboroughRemote2LocalBamFiles(Remote2LocalBamFiles):
+  def __init__(self, site):
+    super(HillsboroughRemote2LocalBamFiles, self).__init__(site)
+    
+  @trace_op
+  def do_cmd(self):
+    cmd = "rsync -r {}:{}/{}/ {}/{}/".format(self.site.ssh_alias, 
+      self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
+    self.sys_cmd(cmd)
 
+    cmd = "rsync -r {}:{}/sites/w3.ci.hillsborough.nc.us/files/backup_migrate/ {}/sites/w3.ci.hillsborough.nc.us/files/backup_migrate/".format(self.site.ssh_alias, 
+      self.site.vps_dir, self.site.doc_root)
+    self.sys_cmd(cmd)
+    
 class Remote2LocalDefaultFiles(Operation):
   name = 'remote_to_local_rsync'
   desc = 'Sync remote default/files to local system'
@@ -171,8 +184,20 @@ class Remote2LocalDefaultFiles(Operation):
       self.site.vps_dir, self.site.doc_root)
     self.sys_cmd(cmd)
 
-#TODO: Need Hillsborough version of Remote2LocalDefaultFiles
+class HillsboroughRemote2LocalDefaultFiles(Remote2LocalDefaultFiles):
+  def __init__(self, site):
+    super(HillsboroughRemote2LocalDefaultFiles, self).__init__(site)
 
+  @trace_op
+  def do_cmd(self):
+    cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/default/files/ {}/sites/default/files/".format(self.site.ssh_alias, 
+      self.site.vps_dir, self.site.doc_root)
+    self.sys_cmd(cmd)
+
+    cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/w3.ci.hillsborough.nc.us/files/ {}/sites/w3.ci.hillsborough.nc.us/files/".format(self.site.ssh_alias, 
+      self.site.vps_dir, self.site.doc_root)
+    self.sys_cmd(cmd)
+    
 class LocalRestore(Operation):
   name = 'local_restore'
   desc = 'Restore db from snapshot in manual backup directory'
@@ -185,8 +210,18 @@ class LocalRestore(Operation):
     cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
     self.sys_cmd(cmd)
 
-#TODO: Need Hillsborough version of LocalRestore
-
+class HillsboroughLocalRestore(LocalRestore):
+  def __init__(self, site):
+    super(HillsboroughLocalRestore, self).__init__(site)
+    
+  @trace_op
+  def do_cmd(self):
+    cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
+    self.sys_cmd(cmd)
+    
+    cmd = 'cd {}/sites/w3.ci.hillsborough.nc.us && drush --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
+    self.sys_cmd(cmd, shell=True)
+    
 class RemotePull(Operation):
   name = 'remote_pull'
   desc = 'Do git pull on remote system'
@@ -207,9 +242,9 @@ class RemoteUpdates(Operation):
 
   @trace_op
   def do_cmd(self):
-    RemoteBackup(self.site).do_cmd()
-    RemotePull(self.site).do_cmd()
-    RemoteUpdateDB(self.site).do_cmd()
+    self.site.get_operation('remote_backup').do_cmd()
+    self.site.get_operation('remote_pull').do_cmd()    
+    self.site.get_operation('remote_update_db').do_cmd()    
 
 class RemoteUpdateDB(Operation):
   name = 'remote_update_db'
@@ -257,7 +292,7 @@ class HillsboroughLocalUpdates(LocalUpdates):
     # and there is internal site, too
     self.sys_cmd('git pull'.format(self.site.doc_root))
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
-    self.sys_cmd('drush --root={}/sites/w3.ci.hillsborough.nc.us --yes up'.format(self.site.doc_root), check_error=False)
+    self.sys_cmd('cd {}/sites/w3.ci.hillsborough.nc.us && drush --yes up'.format(self.site.doc_root), check_error=False, shell=True)
     # The following will revert the gitignore and settings files to HEAD
     self.sys_cmd('git checkout .gitignore sites/default/settings.php'.format(self.site.doc_root))
     self.sys_cmd('git add *'.format(self.site.doc_root))
@@ -301,7 +336,7 @@ class HillsboroughLocalUpdateStatus(LocalUpdateStatus):
       print "****** main site: {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
     else:
       print "main site modules are up-to-date"
-    self.sys_cmd('drush --root={}/sites/w3.ci.hillsborough.nc.us --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
+    self.sys_cmd('cd {}/sites/w3.ci.hillsborough.nc.us && drush --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False, shell=True)
     modules_to_update = self.stdoutdata.split("\n")
     if len(modules_to_update) > 1: # Note that the last module has a newline
       modules_to_update.pop()
@@ -361,6 +396,12 @@ class HillsboroughSite(Site):
       op = HillsboroughRemoteClearCache(self)
     elif op_name == 'remote_backup':
       op = HillsboroughRemoteBackup(self)
+    elif op_name == 'remote_to_local_rsync':
+      op = HillsboroughRemote2LocalDefaultFiles(self)
+    elif op_name == 'local_restore':
+      op = HillsboroughLocalRestore(self)
+    elif op_name == 'remote_to_local_bam_files':
+      op = HillsboroughRemote2LocalBamFiles(self)
     return op
   
 def operation_help():
