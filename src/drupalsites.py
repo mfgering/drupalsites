@@ -15,7 +15,7 @@ def set_verbose(val):
 
 def init_sites():
   sites = {}
-  sites['hillsborough'] = Site('hillsborough', 'hb', '/var/www/dev.ci.hillsborough.nc.us/htdocs', bam_files='sites/default/files/backup_migrate')
+  sites['hillsborough'] = HillsboroughSite('hillsborough', 'hb', '/var/www/dev.ci.hillsborough.nc.us/htdocs', bam_files='sites/default/files/backup_migrate')
   sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs')
   sites['lnba'] = Site('lnba', 'lnba', '/var/www/dev.lnba.net/htdocs')
   sites['stem'] = Site('stem', 'stem', '/var/www/dev.stemnc.org/htdocs')
@@ -34,7 +34,7 @@ def trace_op(func):
     print "<----- {}Ending {}".format(site_str, self.name)
   return func_wrapper
 
-class Operation:
+class Operation(object):
   name = None
   
   @abc.abstractmethod
@@ -89,6 +89,17 @@ class RemoteClearCache(Operation):
     cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
 
+class HillsboroughRemoteClearCache(RemoteClearCache):  
+  def __init__(self, site):
+    super(HillsboroughRemoteClearCache, self).__init__(site)
+
+  @trace_op
+  def do_cmd(self):
+    cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
+    self.ssh_cmd(cmd, tty=True)
+    cmd = 'cd {}/sites/w3.ci.hillsborough.nc.us && drush cc all'.format(self.site.vps_dir)
+    self.ssh_cmd(cmd, tty=True)
+
 class Remote2LocalRestore(Operation):
   name = 'remote_to_local_restore'
   desc = 'Snapshot remote, sync backupfiles to local, restore snapshot on local'
@@ -111,9 +122,25 @@ class RemoteBackup(Operation):
 
   @trace_op
   def do_cmd(self):
-    cmd = 'cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz'.format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
-    self.ssh_cmd(cmd)
-    cmd = 'cd {} && drush bam-backup db manual snapshot'.format(self.site.vps_dir)
+    cmd = "cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz".format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
+    self.ssh_cmd(cmd, check_error=False)
+    cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
+    self.ssh_cmd(cmd, tty=True)
+
+class HillsboroughRemoteBackup(RemoteBackup):
+  def __init(self, site):
+    super(HillsboroughRemoteBackup, self).__init__(site)
+    
+  @trace_op
+  def do_cmd(self):
+    cmd = "cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz".format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
+    self.ssh_cmd(cmd, check_error=False)
+    cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
+    self.ssh_cmd(cmd, tty=True)
+
+    cmd = "cd {} && [ -e sites/w3.ci.hillsborough.nc.us/files/backup_migrate/manual/snapshot.mysql.gz ] && rm sites/w3.ci.hillsborough.nc.us/files/backup_migrate/manual/snapshot.mysql.gz".format(self.site.vps_dir)
+    self.ssh_cmd(cmd, check_error=False)
+    cmd = "cd {}/sites/w3.ci.hillsborough.nc.us && drush bam-backup db manual snapshot".format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
 
 class Remote2LocalBamFiles(Operation):
@@ -129,6 +156,8 @@ class Remote2LocalBamFiles(Operation):
       self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
     self.sys_cmd(cmd)
 
+#TODO: Need Hillsborough version of Remote2LocalBamFiles
+
 class Remote2LocalDefaultFiles(Operation):
   name = 'remote_to_local_rsync'
   desc = 'Sync remote default/files to local system'
@@ -142,6 +171,8 @@ class Remote2LocalDefaultFiles(Operation):
       self.site.vps_dir, self.site.doc_root)
     self.sys_cmd(cmd)
 
+#TODO: Need Hillsborough version of Remote2LocalDefaultFiles
+
 class LocalRestore(Operation):
   name = 'local_restore'
   desc = 'Restore db from snapshot in manual backup directory'
@@ -153,6 +184,8 @@ class LocalRestore(Operation):
   def do_cmd(self):
     cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
     self.sys_cmd(cmd)
+
+#TODO: Need Hillsborough version of LocalRestore
 
 class RemotePull(Operation):
   name = 'remote_pull'
@@ -189,6 +222,15 @@ class RemoteUpdateDB(Operation):
   def do_cmd(self):
     self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
 
+class HillsboroughRemoteUpdateDB(RemoteUpdateDB):
+  def __init__(self, site):
+    super(HillsboroughRemoteUpdateDB, self).__init__(site)
+
+  @trace_op
+  def do_cmd(self):
+    self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
+    self.ssh_cmd("cd {}/sites/w3.ci.hillsborough.nc.us && drush --yes updatedb".format(self.site.vps_dir))
+
 class LocalUpdates(Operation):
   name = 'local_updates'
   desc = 'Pull from master, update modules, commit and push to master'
@@ -202,9 +244,26 @@ class LocalUpdates(Operation):
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
     self.sys_cmd('git checkout .gitignore'.format(self.site.doc_root))
     self.sys_cmd('git add *'.format(self.site.doc_root))
-    self.sys_cmd('git reset -- sites/default/settings.php'.format(self.site.doc_root))
     self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
     self.sys_cmd('git push'.format(self.site.doc_root))
+
+class HillsboroughLocalUpdates(LocalUpdates):
+  def __init__(self, site):
+    super(HillsboroughLocalUpdates, self).__init__(site)
+
+  @trace_op
+  def do_cmd(self):
+    # Hillsborough is different because the local settings files are different from the remote ones,
+    # and there is internal site, too
+    self.sys_cmd('git pull'.format(self.site.doc_root))
+    self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
+    self.sys_cmd('drush --root={}/sites/w3.ci.hillsborough.nc.us --yes up'.format(self.site.doc_root), check_error=False)
+    # The following will revert the gitignore and settings files to HEAD
+    self.sys_cmd('git checkout .gitignore sites/default/settings.php'.format(self.site.doc_root))
+    self.sys_cmd('git add *'.format(self.site.doc_root))
+    self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
+    self.sys_cmd('git push'.format(self.site.doc_root))
+    self.sys_cmd('cp sites/default/settings-dev.php sites/default/settings.php') # restore dev settings
   
 class LocalUpdateStatus(Operation):
   name = 'local_update_status'
@@ -226,15 +285,29 @@ class LocalUpdateStatus(Operation):
     else:
       print "modules are up-to-date"
 
-class Site:
-  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
-    self.name = name
-    self.ssh_alias = ssh_alias
-    self.doc_root = doc_root
-    self.vps_dir = vps_dir
-    self.bam_files = bam_files
-    if not os.path.exists(doc_root):
-      raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
+class HillsboroughLocalUpdateStatus(LocalUpdateStatus):
+  def __init__(self, site):
+    super(HillsboroughLocalUpdateStatus, self).__init__(site)
+
+  @trace_op
+  def do_cmd(self):
+    self.sys_cmd('git pull'.format(self.site.doc_root), print_output=False)
+    if self.stdoutdata.find("Already up-to-date.") < 0:
+      print "git pulled:\n"+self.stdoutdata
+    self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
+    modules_to_update = self.stdoutdata.split("\n")
+    if len(modules_to_update) > 1: # Note that the last module has a newline
+      modules_to_update.pop()
+      print "****** main site: {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
+    else:
+      print "main site modules are up-to-date"
+    self.sys_cmd('drush --root={}/sites/w3.ci.hillsborough.nc.us --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
+    modules_to_update = self.stdoutdata.split("\n")
+    if len(modules_to_update) > 1: # Note that the last module has a newline
+      modules_to_update.pop()
+      print "****** internal site: {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
+    else:
+      print "internal site modules are up-to-date"
 
 OperationClasses = [RemoteClearCache,
   Remote2LocalRestore,
@@ -249,33 +322,66 @@ OperationClasses = [RemoteClearCache,
   LocalUpdateStatus
 ]
 
-Operations = {}
+def base_operations():
+  result = {}
+  for operation in OperationClasses:
+    result[operation.name] = operation
+  return result
 
+class Site(object):
+  
+  operations = base_operations()
+  
+  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
+    self.name = name
+    self.ssh_alias = ssh_alias
+    self.doc_root = doc_root
+    self.vps_dir = vps_dir
+    self.bam_files = bam_files
+    if not os.path.exists(doc_root):
+      raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
+  
+  def get_operation(self, op_name):
+    op_cls = Site.operations[op_name] 
+    return op_cls(self)
+
+class HillsboroughSite(Site):
+  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
+    super(HillsboroughSite, self).__init__(name, ssh_alias, doc_root, vps_dir, bam_files)
+
+  def get_operation(self, op_name):
+    op = super(HillsboroughSite, self).get_operation(op_name)
+    if op_name == 'local_updates':
+      op = HillsboroughLocalUpdates(self)
+    elif op_name == 'remote_update_db':
+      op = HillsboroughRemoteUpdateDB(self)
+    elif op_name == 'local_update_status':
+      op = HillsboroughLocalUpdateStatus(self)
+    elif op_name == 'remote_cc':
+      op = HillsboroughRemoteClearCache(self)
+    elif op_name == 'remote_backup':
+      op = HillsboroughRemoteBackup(self)
+    return op
+  
 def operation_help():
   help_txt = ''
   help_txt += "Sites:\n"
   for site_name in sorted(sites.keys()):
     help_txt += "  {}\n".format(sites[site_name].name)
   help_txt += "\nOperations (OP):\n"
-  max_op_len = max(map(len, Operations.keys()))
+  max_op_len = max(map(len, Site.operations.keys()))
   t_wrapper = textwrap.TextWrapper()
   t_wrapper.width = 80
   t_wrapper.initial_indent = ' ' * 2
   t_wrapper.subsequent_indent = ' ' * (6 + max_op_len)
-  for operation_name in sorted(Operations.keys()):
-    operation = Operations[operation_name]
+  for operation_name in sorted(Site.operations.keys()):
+    operation = Site.operations[operation_name]
     op_help = "{}{}    {}\n".format(operation.name, 
                                         ' ' * (max_op_len - len(operation.name)), 
                                         operation.desc)
     help_txt += t_wrapper.fill(op_help)+"\n"
   return help_txt
 
-def init_operations():
-  global Operations
-  for operation in OperationClasses:
-    Operations[operation.name] = operation
-
-init_operations()
 sites = init_sites()
 
 def interactive():
@@ -304,14 +410,14 @@ def interactive():
   while op_option is None:
     print("\nOperations:")
     x = 0
-    op_keys = sorted(Operations.keys())
+    op_keys = sorted(Site.operations.keys())
     for op_name in op_keys:
       print "  {} {}".format(x, op_name)
       x += 1
     op_inp = raw_input("Operation? ")
     try:
       op_num = int(op_inp)
-      if op_num < 0 or op_num >= len(Operations):
+      if op_num < 0 or op_num >= len(Site.operations):
         print("Invalid choice")
       else:
         op_option = op_keys[op_num]
@@ -342,7 +448,7 @@ if __name__ == "__main__":
     else:
       op_option = args.op
       site_option = args.sites
-    if not Operations.has_key(op_option):
+    if not Site.operations.has_key(op_option):
       print "Operation {0} is not recognized.".format(op_option)
       errors += 1
     sites_to_do = set()
@@ -357,8 +463,7 @@ if __name__ == "__main__":
           errors += 1
     if errors == 0:
       for site in sites_to_do:
-        operation_cls = Operations[op_option]
-        operation = operation_cls(site)
+        operation = site.get_operation(op_option)
         if args.dry_run:
           print("Dry run for operation {} on site {}".format(operation.name, site.name))
         else:

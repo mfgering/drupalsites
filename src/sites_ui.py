@@ -53,8 +53,7 @@ class SitesOpWorker(QObject):
   def perform_site_op(self, site_name, op_name, verbose_opt, dry_run_opt):
     msgs = []
     site = sites[site_name]
-    operation_cls = Operations[op_name]
-    operation = operation_cls(site)
+    operation = site.get_operation(op_name)
     set_verbose(verbose_opt)
     
     if dry_run_opt:
@@ -92,10 +91,10 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
       self.site_checkboxes.append(check)
       self.sitesListWidget.setItemWidget(item, check)
     self.op_radios = []
-    for op in sorted(Operations):
+    for op in sorted(Site.operations):
       item = QtGui.QListWidgetItem(self.opListWidget)
       radio = QtGui.QRadioButton(op)
-      radio.setToolTip(Operations[op].desc)
+      radio.setToolTip(Site.operations[op].desc)
       self.op_radios.append(radio)
       self.opListWidget.setItemWidget(item, radio)
     self.buttonBox.button(QtGui.QDialogButtonBox.Apply).clicked.connect(self.apply)

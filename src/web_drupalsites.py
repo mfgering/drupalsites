@@ -9,7 +9,7 @@ import cgi
 import sys
 import yaml
 from flask import Flask, render_template, redirect, url_for, flash, request, Markup, jsonify
-from drupalsites import Operations, sites, set_verbose
+from drupalsites import Site, sites, set_verbose
 from contextlib import contextmanager
 
 app = Flask(__name__)
@@ -36,14 +36,13 @@ def site_op():
 
 @app.route("/manage")
 def manage():
-  global sites, Operations
-  return render_template('manage.html', ops_dict=Operations, sites_dict=sites)
+  global sites
+  return render_template('manage.html', ops_dict=Site.operations, sites_dict=sites)
 
 def perform_site_op(site_name, op_name, verbose_opt, dry_run_opt):
   msgs = []
   site = sites[site_name]
-  operation_cls = Operations[op_name]
-  operation = operation_cls(site)
+  operation = site.get_operation(op_name)
   set_verbose(verbose_opt)
   if dry_run_opt:
     msgs.append("Dry run for operation {} on site {}".format(operation.name, site.name))
