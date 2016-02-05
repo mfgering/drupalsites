@@ -97,8 +97,6 @@ class HillsboroughRemoteClearCache(RemoteClearCache):
   def do_cmd(self):
     cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
-    cmd = 'cd {}/sites/w3.ci.hillsborough.nc.us && drush cc all'.format(self.site.vps_dir)
-    self.ssh_cmd(cmd, tty=True)
 
 class Remote2LocalRestore(Operation):
   name = 'remote_to_local_restore'
@@ -138,11 +136,6 @@ class HillsboroughRemoteBackup(RemoteBackup):
     self.ssh_cmd(cmd, check_error=False)
     cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
-    print "Doing internal (w3) site..."
-    cmd = "cd {} && [ -e sites/w3.ci.hillsborough.nc.us/files/backup_migrate/manual/snapshot.mysql.gz ] && rm sites/w3.ci.hillsborough.nc.us/files/backup_migrate/manual/snapshot.mysql.gz".format(self.site.vps_dir)
-    self.ssh_cmd(cmd, check_error=False)
-    cmd = "cd {}/sites/w3.ci.hillsborough.nc.us && drush bam-backup db manual snapshot".format(self.site.vps_dir)
-    self.ssh_cmd(cmd, tty=True)
 
 class Remote2LocalBamFiles(Operation):
   name = 'remote_to_local_bam_files'
@@ -165,10 +158,6 @@ class HillsboroughRemote2LocalBamFiles(Remote2LocalBamFiles):
   def do_cmd(self):
     cmd = "rsync -r {}:{}/{}/ {}/{}/".format(self.site.ssh_alias, 
       self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
-    self.sys_cmd(cmd)
-
-    cmd = "rsync -r {}:{}/sites/w3.ci.hillsborough.nc.us/files/backup_migrate/ {}/sites/w3.ci.hillsborough.nc.us/files/backup_migrate/".format(self.site.ssh_alias, 
-      self.site.vps_dir, self.site.doc_root)
     self.sys_cmd(cmd)
     
 class Remote2LocalDefaultFiles(Operation):
@@ -193,10 +182,6 @@ class HillsboroughRemote2LocalDefaultFiles(Remote2LocalDefaultFiles):
     cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/default/files/ {}/sites/default/files/".format(self.site.ssh_alias, 
       self.site.vps_dir, self.site.doc_root)
     self.sys_cmd(cmd)
-
-    cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/w3.ci.hillsborough.nc.us/files/ {}/sites/w3.ci.hillsborough.nc.us/files/".format(self.site.ssh_alias, 
-      self.site.vps_dir, self.site.doc_root)
-    self.sys_cmd(cmd)
     
 class LocalRestore(Operation):
   name = 'local_restore'
@@ -218,9 +203,6 @@ class HillsboroughLocalRestore(LocalRestore):
   def do_cmd(self):
     cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
     self.sys_cmd(cmd)
-    
-    cmd = 'cd {}/sites/w3.ci.hillsborough.nc.us && drush --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
-    self.sys_cmd(cmd, shell=True)
     
 class RemotePull(Operation):
   name = 'remote_pull'
@@ -264,7 +246,6 @@ class HillsboroughRemoteUpdateDB(RemoteUpdateDB):
   @trace_op
   def do_cmd(self):
     self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
-    self.ssh_cmd("cd {}/sites/w3.ci.hillsborough.nc.us && drush --yes updatedb".format(self.site.vps_dir))
 
 class LocalUpdates(Operation):
   name = 'local_updates'
@@ -292,7 +273,6 @@ class HillsboroughLocalUpdates(LocalUpdates):
     # and there is internal site, too
     self.sys_cmd('git pull'.format(self.site.doc_root))
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
-    self.sys_cmd('cd {}/sites/w3.ci.hillsborough.nc.us && drush --yes up'.format(self.site.doc_root), check_error=False, shell=True)
     # The following will revert the gitignore and settings files to HEAD
     self.sys_cmd('git checkout .gitignore sites/default/settings.php'.format(self.site.doc_root))
     self.sys_cmd('git add *'.format(self.site.doc_root))
@@ -336,13 +316,6 @@ class HillsboroughLocalUpdateStatus(LocalUpdateStatus):
       print "****** main site: {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
     else:
       print "main site modules are up-to-date"
-    self.sys_cmd('cd {}/sites/w3.ci.hillsborough.nc.us && drush --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False, shell=True)
-    modules_to_update = self.stdoutdata.split("\n")
-    if len(modules_to_update) > 1: # Note that the last module has a newline
-      modules_to_update.pop()
-      print "****** internal site: {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
-    else:
-      print "internal site modules are up-to-date"
 
 OperationClasses = [RemoteClearCache,
   Remote2LocalRestore,
