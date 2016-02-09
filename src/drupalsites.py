@@ -172,6 +172,7 @@ class Remote2LocalDefaultFiles(Operation):
     cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/default/files/ {}/sites/default/files/".format(self.site.ssh_alias, 
       self.site.vps_dir, self.site.doc_root)
     self.sys_cmd(cmd)
+    self.site.get_operation('local_fix_perms').do_cmd()
 
 class HillsboroughRemote2LocalDefaultFiles(Remote2LocalDefaultFiles):
   def __init__(self, site):
@@ -183,6 +184,18 @@ class HillsboroughRemote2LocalDefaultFiles(Remote2LocalDefaultFiles):
       self.site.vps_dir, self.site.doc_root)
     self.sys_cmd(cmd)
     
+class LocalFixPerms(Operation):
+  name = 'local_fix_perms'
+  desc = 'Fix local files file permissions'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    cmd = 'sudo chmod -R g+w {}/sites/default/files'.format(self.site.doc_root)
+    self.sys_cmd(cmd)
+
 class LocalRestore(Operation):
   name = 'local_restore'
   desc = 'Restore db from snapshot in manual backup directory'
@@ -327,7 +340,8 @@ OperationClasses = [RemoteClearCache,
   RemoteUpdates,
   RemoteUpdateDB,
   LocalUpdates,
-  LocalUpdateStatus
+  LocalUpdateStatus,
+  LocalFixPerms
 ]
 
 def base_operations():
