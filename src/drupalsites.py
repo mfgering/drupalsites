@@ -78,6 +78,17 @@ class Operation(object):
       else:
         print self.stdoutdata,
 
+class NoOperation(Operation):
+  name = 'no_operation'
+  desc = 'Does nothing'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    print "Can't perform"
+  
 class RemoteCheckCert(Operation):
   name = 'remote_cert'
   desc = 'Remote tls cert check'
@@ -103,7 +114,6 @@ class RemoteCheckCert(Operation):
         print "Can't find the end"
     else:
       print "NO MATCH"
-    pass
 
 class RemoteClearCache(Operation):
   name = 'remote_cc'
@@ -419,6 +429,8 @@ class HillsboroughSite(Site):
       op = HillsboroughLocalRestore(self)
     elif op_name == 'remote_to_local_bam_files':
       op = HillsboroughRemote2LocalBamFiles(self)
+    else:
+      op = NoOperation(self)
     return op
   
 def operation_help():
