@@ -8,6 +8,7 @@ import shlex
 import subprocess
 import sys
 import textwrap
+import re
 
 def set_verbose(val):
   global verbose
@@ -15,13 +16,13 @@ def set_verbose(val):
 
 def init_sites():
   sites = {}
-  sites['hillsborough'] = HillsboroughSite('hillsborough', 'hb', '/var/www/dev.ci.hillsborough.nc.us/htdocs', bam_files='sites/default/files/backup_migrate')
-  sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs')
-  sites['lnba'] = Site('lnba', 'lnba', '/var/www/dev.lnba.net/htdocs')
-  sites['stem'] = Site('stem', 'stem', '/var/www/dev.stemnc.org/htdocs')
-  sites['unrba'] = Site('unrba', 'unrba', '/var/www/dev.unrba.org/htdocs')
-  sites['hcrt'] = Site('hcrt', 'hcrt', '/var/www/dev.w3.harvardtriangle.org/htdocs', vps_dir='w3.harvardtriangle.org')
-  sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs')
+  sites['hillsborough'] = HillsboroughSite('hillsborough', 'hb', '/var/www/dev.ci.hillsborough.nc.us/htdocs', bam_files='sites/default/files/backup_migrate', base_domain='ci.hillsborough.nc.us')
+  sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs', base_domain='gattishouse.com')
+  sites['lnba'] = Site('lnba', 'lnba', '/var/www/dev.lnba.net/htdocs', base_domain='lnba.net')
+  sites['stem'] = Site('stem', 'stem', '/var/www/dev.stemnc.org/htdocs', base_domain='stemnc.org')
+  sites['unrba'] = Site('unrba', 'unrba', '/var/www/dev.unrba.org/htdocs', base_domain='unrba.org')
+  sites['hcrt'] = Site('hcrt', 'hcrt', '/var/www/dev.w3.harvardtriangle.org/htdocs', vps_dir='w3.harvardtriangle.org', base_domain='w3.harvardtriangle.org')
+  sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs', base_domain="yadkinpeedee.org")
   return sites
 
 def trace_op(func):
@@ -76,6 +77,33 @@ class Operation(object):
         print self.stderrdata,
       else:
         print self.stdoutdata,
+
+class RemoteCheckCert(Operation):
+  name = 'remote_cert'
+  desc = 'Remote tls cert check'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    cmd = 'curl -v \'https://{}\''.format(self.site.base_domain)
+    self.sys_cmd(cmd, print_output=False)
+    p = re.compile('Server certificate.*$', re.MULTILINE)
+    m = p.search(self.stderrdata)
+    if not m is None:
+      end_pos = m.end()
+      str2 = self.stderrdata[end_pos:]
+      p = re.compile('^>', re.MULTILINE)
+      m = p.search(str2)
+      if not m is None:
+        str3 = str2[:m.start()]
+        print "Certificate info:\n"+str3+"\n"
+      else:
+        print "Can't find the end"
+    else:
+      print "NO MATCH"
+    pass
 
 class RemoteClearCache(Operation):
   name = 'remote_cc'
@@ -341,7 +369,8 @@ OperationClasses = [RemoteClearCache,
   RemoteUpdateDB,
   LocalUpdates,
   LocalUpdateStatus,
-  LocalFixPerms
+  LocalFixPerms,
+  RemoteCheckCert
 ]
 
 def base_operations():
@@ -354,12 +383,13 @@ class Site(object):
   
   operations = base_operations()
   
-  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
+  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate', base_domain=''):
     self.name = name
     self.ssh_alias = ssh_alias
     self.doc_root = doc_root
     self.vps_dir = vps_dir
     self.bam_files = bam_files
+    self.base_domain = base_domain
     if not os.path.exists(doc_root):
       raise Exception('Site '+name+' docroot '+doc_root+' does not exist')
   
@@ -368,8 +398,8 @@ class Site(object):
     return op_cls(self)
 
 class HillsboroughSite(Site):
-  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate'):
-    super(HillsboroughSite, self).__init__(name, ssh_alias, doc_root, vps_dir, bam_files)
+  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate', base_domain=''):
+    super(HillsboroughSite, self).__init__(name, ssh_alias, doc_root, vps_dir, bam_files, base_domain)
 
   def get_operation(self, op_name):
     op = super(HillsboroughSite, self).get_operation(op_name)
