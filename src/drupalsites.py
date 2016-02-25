@@ -309,7 +309,7 @@ class LocalUpdates(Operation):
   def do_cmd(self):
     self.sys_cmd('git pull'.format(self.site.doc_root))
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
-    self.sys_cmd('git checkout .gitignore'.format(self.site.doc_root))
+    self.sys_cmd('git checkout .gitignore .htaccess'.format(self.site.doc_root))
     self.sys_cmd('git add *'.format(self.site.doc_root))
     self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
     self.sys_cmd('git push'.format(self.site.doc_root))
