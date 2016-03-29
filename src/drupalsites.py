@@ -16,7 +16,6 @@ def set_verbose(val):
 
 def init_sites():
   sites = {}
-  sites['hillsborough'] = HillsboroughSite('hillsborough', 'hb', '/var/www/dev.ci.hillsborough.nc.us/htdocs', bam_files='sites/default/files/backup_migrate', base_domain='ci.hillsborough.nc.us')
   sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs', base_domain='gattishouse.com')
   sites['lnba'] = Site('lnba', 'lnba', '/var/www/dev.lnba.net/htdocs', base_domain='lnba.net')
   sites['stem'] = Site('stem', 'stem', '/var/www/dev.stemnc.org/htdocs', base_domain='stemnc.org')
@@ -127,15 +126,6 @@ class RemoteClearCache(Operation):
     cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
 
-class HillsboroughRemoteClearCache(RemoteClearCache):  
-  def __init__(self, site):
-    super(HillsboroughRemoteClearCache, self).__init__(site)
-
-  @trace_op
-  def do_cmd(self):
-    cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
-    self.ssh_cmd(cmd, tty=True)
-
 class Remote2LocalRestore(Operation):
   name = 'remote_to_local_restore'
   desc = 'Snapshot remote, sync backupfiles to local, restore snapshot on local'
@@ -163,18 +153,6 @@ class RemoteBackup(Operation):
     cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
     self.ssh_cmd(cmd, tty=True)
 
-class HillsboroughRemoteBackup(RemoteBackup):
-  def __init(self, site):
-    super(HillsboroughRemoteBackup, self).__init__(site)
-    
-  @trace_op
-  def do_cmd(self):
-    print "Doing external (www) site..."
-    cmd = "cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz".format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
-    self.ssh_cmd(cmd, check_error=False)
-    cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
-    self.ssh_cmd(cmd, tty=True)
-
 class Remote2LocalBamFiles(Operation):
   name = 'remote_to_local_bam_files'
   desc = 'Sync remote backup files to local system'
@@ -188,16 +166,6 @@ class Remote2LocalBamFiles(Operation):
       self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
     self.sys_cmd(cmd)
 
-class HillsboroughRemote2LocalBamFiles(Remote2LocalBamFiles):
-  def __init__(self, site):
-    super(HillsboroughRemote2LocalBamFiles, self).__init__(site)
-    
-  @trace_op
-  def do_cmd(self):
-    cmd = "rsync -r {}:{}/{}/ {}/{}/".format(self.site.ssh_alias, 
-      self.site.vps_dir, self.site.bam_files, self.site.doc_root, self.site.bam_files)
-    self.sys_cmd(cmd)
-    
 class Remote2LocalDefaultFiles(Operation):
   name = 'remote_to_local_rsync'
   desc = 'Sync remote default/files to local system'
@@ -212,16 +180,6 @@ class Remote2LocalDefaultFiles(Operation):
     self.sys_cmd(cmd)
     self.site.get_operation('local_fix_perms').do_cmd()
 
-class HillsboroughRemote2LocalDefaultFiles(Remote2LocalDefaultFiles):
-  def __init__(self, site):
-    super(HillsboroughRemote2LocalDefaultFiles, self).__init__(site)
-
-  @trace_op
-  def do_cmd(self):
-    cmd = "rsync -avh --delete --exclude=css/ --exclude=js/ --exclude=ctool/ {}:{}/sites/default/files/ {}/sites/default/files/".format(self.site.ssh_alias, 
-      self.site.vps_dir, self.site.doc_root)
-    self.sys_cmd(cmd)
-    
 class LocalFixPerms(Operation):
   name = 'local_fix_perms'
   desc = 'Fix local files file permissions'
@@ -246,15 +204,6 @@ class LocalRestore(Operation):
     cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
     self.sys_cmd(cmd)
 
-class HillsboroughLocalRestore(LocalRestore):
-  def __init__(self, site):
-    super(HillsboroughLocalRestore, self).__init__(site)
-    
-  @trace_op
-  def do_cmd(self):
-    cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
-    self.sys_cmd(cmd)
-    
 class RemotePull(Operation):
   name = 'remote_pull'
   desc = 'Do git pull on remote system'
@@ -290,14 +239,6 @@ class RemoteUpdateDB(Operation):
   def do_cmd(self):
     self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
 
-class HillsboroughRemoteUpdateDB(RemoteUpdateDB):
-  def __init__(self, site):
-    super(HillsboroughRemoteUpdateDB, self).__init__(site)
-
-  @trace_op
-  def do_cmd(self):
-    self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
-
 class LocalUpdates(Operation):
   name = 'local_updates'
   desc = 'Pull from master, update modules, commit and push to master'
@@ -314,23 +255,6 @@ class LocalUpdates(Operation):
     self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
     self.sys_cmd('git push'.format(self.site.doc_root))
 
-class HillsboroughLocalUpdates(LocalUpdates):
-  def __init__(self, site):
-    super(HillsboroughLocalUpdates, self).__init__(site)
-
-  @trace_op
-  def do_cmd(self):
-    # Hillsborough is different because the local settings files are different from the remote ones,
-    # and there is internal site, too
-    self.sys_cmd('git pull'.format(self.site.doc_root))
-    self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
-    # The following will revert the gitignore and settings files to HEAD
-    self.sys_cmd('git checkout .gitignore sites/default/settings.php'.format(self.site.doc_root))
-    self.sys_cmd('git add *'.format(self.site.doc_root))
-    self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
-    self.sys_cmd('git push'.format(self.site.doc_root))
-    self.sys_cmd('cp sites/default/settings-dev.php sites/default/settings.php') # restore dev settings
-  
 class LocalUpdateStatus(Operation):
   name = 'local_update_status'
   desc = 'Pull from master, check for updates'
@@ -350,23 +274,6 @@ class LocalUpdateStatus(Operation):
       print "****** {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
     else:
       print "modules are up-to-date"
-
-class HillsboroughLocalUpdateStatus(LocalUpdateStatus):
-  def __init__(self, site):
-    super(HillsboroughLocalUpdateStatus, self).__init__(site)
-
-  @trace_op
-  def do_cmd(self):
-    self.sys_cmd('git pull'.format(self.site.doc_root), print_output=False)
-    if self.stdoutdata.find("Already up-to-date.") < 0:
-      print "git pulled:\n"+self.stdoutdata
-    self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
-    modules_to_update = self.stdoutdata.split("\n")
-    if len(modules_to_update) > 1: # Note that the last module has a newline
-      modules_to_update.pop()
-      print "****** main site: {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
-    else:
-      print "main site modules are up-to-date"
 
 OperationClasses = [RemoteClearCache,
   Remote2LocalRestore,
@@ -406,32 +313,6 @@ class Site(object):
   def get_operation(self, op_name):
     op_cls = Site.operations[op_name] 
     return op_cls(self)
-
-class HillsboroughSite(Site):
-  def __init__(self, name, ssh_alias, doc_root, vps_dir='www', bam_files='sites/default/files/private/backup_migrate', base_domain=''):
-    super(HillsboroughSite, self).__init__(name, ssh_alias, doc_root, vps_dir, bam_files, base_domain)
-
-  def get_operation(self, op_name):
-    op = super(HillsboroughSite, self).get_operation(op_name)
-    if op_name == 'local_updates':
-      op = HillsboroughLocalUpdates(self)
-    elif op_name == 'remote_update_db':
-      op = HillsboroughRemoteUpdateDB(self)
-    elif op_name == 'local_update_status':
-      op = HillsboroughLocalUpdateStatus(self)
-    elif op_name == 'remote_cc':
-      op = HillsboroughRemoteClearCache(self)
-    elif op_name == 'remote_backup':
-      op = HillsboroughRemoteBackup(self)
-    elif op_name == 'remote_to_local_rsync':
-      op = HillsboroughRemote2LocalDefaultFiles(self)
-    elif op_name == 'local_restore':
-      op = HillsboroughLocalRestore(self)
-    elif op_name == 'remote_to_local_bam_files':
-      op = HillsboroughRemote2LocalBamFiles(self)
-    else:
-      op = NoOperation(self)
-    return op
   
 def operation_help():
   help_txt = ''
