@@ -189,9 +189,9 @@ class LocalFixPerms(Operation):
 
   @trace_op
   def do_cmd(self):
-    cmd = 'sudo chmod -R g+w {}/sites/default/files'.format(self.site.doc_root)
+    cmd = 'sudo chmod -R g+w {}'.format(self.site.doc_root)
     self.sys_cmd(cmd)
-    cmd = 'sudo chown -R mgering:www-data {}/sites/default/files'.format(self.site.doc_root)
+    cmd = 'sudo chown -R mgering:www-data {}'.format(self.site.doc_root)
     self.sys_cmd(cmd)
 
 class LocalRestore(Operation):
