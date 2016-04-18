@@ -99,7 +99,7 @@ class RemoteCheckCert(Operation):
   def do_cmd(self):
     cmd = 'curl -v \'https://{}\''.format(self.site.base_domain)
     self.sys_cmd(cmd, print_output=False)
-    p = re.compile('Server certificate.*$', re.MULTILINE)
+    p = re.compile('Server certificate.*$|server certificate verification.*$', re.MULTILINE)
     m = p.search(self.stderrdata)
     if not m is None:
       end_pos = m.end()
@@ -112,6 +112,7 @@ class RemoteCheckCert(Operation):
       else:
         print "Can't find the end"
     else:
+      #server certificate verification
       print "NO MATCH"
 
 class RemoteClearCache(Operation):
