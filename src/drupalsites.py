@@ -22,6 +22,7 @@ def init_sites():
   sites['unrba'] = Site('unrba', 'unrba', '/var/www/dev.unrba.org/htdocs', base_domain='unrba.org')
   sites['hcrt'] = Site('hcrt', 'hcrt', '/var/www/dev.w3.harvardtriangle.org/htdocs', vps_dir='w3.harvardtriangle.org', base_domain='w3.harvardtriangle.org')
   sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs', base_domain="yadkinpeedee.org")
+  sites['pfap'] = Site('pfap', 'pfap', '/var/www/dev.pfapnc.org/htdocs', base_domain="pfapnc.org")
   return sites
 
 def trace_op(func):
