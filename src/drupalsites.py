@@ -259,6 +259,17 @@ class LocalUpdates(Operation):
     self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
     self.sys_cmd('git push'.format(self.site.doc_root))
 
+class LocalUpdateDB(Operation):
+  name = 'local_update_db'
+  desc = 'Local drush updatedb'
+  
+  def __init__(self, site):
+    self.site = site
+
+  @trace_op
+  def do_cmd(self):
+    self.sys_cmd('drush --root={} --yes updatedb'.format(self.site.doc_root), check_error=False)
+
 class LocalUpdateStatus(Operation):
   name = 'local_update_status'
   desc = 'Pull from master, check for updates'
@@ -289,6 +300,7 @@ OperationClasses = [RemoteClearCache,
   RemoteUpdates,
   RemoteUpdateDB,
   LocalUpdates,
+  LocalUpdateDB,
   LocalUpdateStatus,
   LocalFixPerms,
   RemoteCheckCert
