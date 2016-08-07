@@ -43,7 +43,34 @@ class Operation(object):
     """Perform a command"""
     return
   
-  def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False):
+  def run_a_cmd(self, args, check_error = True, print_output = True, sysout_callback, shell=False):
+    global verbose
+    cmd = args.join(' ')
+    if verbose:
+      print cmd
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
+    while True:
+      next_line = p.stdout.readline()
+      if next_line == '' and p.poll() is not None:
+        break
+      if sysout_callback is not None:
+        sysout_callback(next_line)
+    (self.stdoutdata, self.stderrdata) = p.communicate()
+    self.returncode = p.returncode
+    if print_output:
+      if self.returncode != 0 and check_error:
+        print "***ERROR*** for '{0}'".format(cmd)
+        print self.stderrdata,
+      else:
+        print self.stdoutdata,
+    
+  
+  def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False, sysout_cb = None):
+    os.chdir(self.site.doc_root)
+    args = shlex.split(cmd)
+    self.run_a_cmd(args, check_error, print_output, sysout_cb, shell)
+
+  def sys_cmd_old(self, cmd, check_error = True, print_output = True, shell = False, sysout_cb = None):
     global verbose
     if verbose:
       print cmd
@@ -59,7 +86,7 @@ class Operation(object):
       else:
         print self.stdoutdata,
     
-  def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True):
+  def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True, sysout_cb = None):
     if tty:
       args = ['ssh', '-t', self.site.ssh_alias, cmd]
     else:
