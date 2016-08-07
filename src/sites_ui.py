@@ -15,6 +15,11 @@ from contextlib import contextmanager
 import StringIO
 from web_drupalsites import perform_site_op
 
+def ui_sysout_callback(msg):
+  print "*************** in callback"
+  global sysout_obj
+  sysout_obj.sysout_callback(msg)
+
 @contextmanager
 def stdout_redirector(stream):
     old_stdout = sys.stdout
@@ -33,7 +38,18 @@ class SitesOpWorker(QObject):
   finished = QtCore.Signal(str)
   progress = QtCore.Signal(list)
   
+  def sysout_callback(self, msg):
+    print ">>>>>***********************************************************"
+    print msg
+    print "<<<<<<<***********************************************************"
+    self.progress.emit([msg])
+    
+  
   def perform(self, sites, op_name, verbose_opt, dry_run_opt):
+    global sysout_obj
+    sysout_obj = self
+    set_sysout_callback(ui_sysout_callback)
+    
     errors = 0
     msgs = []
     if op_name == '':
@@ -59,12 +75,13 @@ class SitesOpWorker(QObject):
     if dry_run_opt:
       msgs.append("Dry run for operation {} on site {}".format(operation.name, site.name))
     else:
-      std_str = StringIO.StringIO()
-      with stdout_redirector(std_str):
-        operation.do_cmd()
-        msg = std_str.getvalue()
-        msgs.append(msg)
-        std_str.close()
+       operation.do_cmd()
+#      std_str = StringIO.StringIO()
+#       with stdout_redirector(std_str):
+#         operation.do_cmd()
+#         msg = std_str.getvalue()
+#         msgs.append(msg)
+#         std_str.close()
     return {'msgs': msgs}
 
 class MyManageDialog(QDialog, Ui_ManageDialog):
