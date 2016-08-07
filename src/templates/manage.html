@@ -1,0 +1,45 @@
+<!doctype html>
+<script type=text/javascript>
+  $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
+<link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='styles.css') }}">
+<title>Manage</title>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+  <h2 id="flashed-msgs">Messages</h2>
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+<div id="ajax-msgs" class="hidden">
+</div>
+<div class="options-div">
+<h2>Options</h2>
+	<label><input name="verbose" type="checkbox" value="verbose"/> verbose</label><br>
+	<label><input name="dry-run" type="checkbox" value="dry-run"/> dry run</label>
+</div>
+<div class="operations-div">
+	<h2>Operations</h2>
+	{% for op in ops_dict|dictsort %}
+	  {% set op_obj = op[1] %}
+	  <label><input value="{{ op_obj.name }}" type="radio" name="operation"/>{{ op_obj.name }}</label><br>
+	{% endfor %}
+</div>
+<div class="sites-div">
+	<h2>Sites</h2>
+	  <label><input id="all_sites" type="checkbox" name="all_sites" value="all_sites"/>All sites</label><br><br>
+	{% for site in sites_dict|dictsort %}
+	  {% set site_obj = site[1] %}
+	  <label><input type="checkbox" name="site" value="{{ site_obj.name }}"/>{{ site_obj.name }}</label><br>
+	{% endfor %}
+</div>
+<div class="actions-div">
+	<input type="button" value="Run" onclick="perform_ops();">
+</div>
+<script type=text/javascript src="{{
+  url_for('static', filename='jquery-2.2.0.min.js') }}"></script>
+<script type=text/javascript src="{{
+  url_for('static', filename='manage.js') }}"></script>
