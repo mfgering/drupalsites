@@ -14,6 +14,14 @@ def set_verbose(val):
   global verbose
   verbose = val
 
+def set_sysout_callback(cb):
+  global sysout_callback
+  sysout_callback = cb
+
+def get_sysout_callback():
+  global sysout_callback
+  return sysout_callback
+
 def init_sites():
   sites = {}
   sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs', base_domain='gattishouse.com')
@@ -43,9 +51,10 @@ class Operation(object):
     """Perform a command"""
     return
   
-  def run_a_cmd(self, args, check_error = True, print_output = True, sysout_callback, shell=False):
+  def run_a_cmd(self, args, check_error = True, print_output = True, shell=False):
     global verbose
-    cmd = args.join(' ')
+    cb = get_sysout_callback()
+    cmd = ' '.join(args)
     if verbose:
       print cmd
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
@@ -53,8 +62,8 @@ class Operation(object):
       next_line = p.stdout.readline()
       if next_line == '' and p.poll() is not None:
         break
-      if sysout_callback is not None:
-        sysout_callback(next_line)
+      if cb is not None:
+        cb(next_line)
     (self.stdoutdata, self.stderrdata) = p.communicate()
     self.returncode = p.returncode
     if print_output:
@@ -65,12 +74,12 @@ class Operation(object):
         print self.stdoutdata,
     
   
-  def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False, sysout_cb = None):
+  def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False):
     os.chdir(self.site.doc_root)
     args = shlex.split(cmd)
-    self.run_a_cmd(args, check_error, print_output, sysout_cb, shell)
+    self.run_a_cmd(args, check_error, print_output, shell)
 
-  def sys_cmd_old(self, cmd, check_error = True, print_output = True, shell = False, sysout_cb = None):
+  def sys_cmd_old(self, cmd, check_error = True, print_output = True, shell = False):
     global verbose
     if verbose:
       print cmd
@@ -86,24 +95,12 @@ class Operation(object):
       else:
         print self.stdoutdata,
     
-  def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True, sysout_cb = None):
+  def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True):
     if tty:
       args = ['ssh', '-t', self.site.ssh_alias, cmd]
     else:
       args = ['ssh', self.site.ssh_alias, cmd]
-    global verbose
-    if verbose:
-      cmd = " ".join(args)
-      print cmd
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (self.stdoutdata, self.stderrdata) = p.communicate()
-    self.returncode = p.returncode
-    if print_output:
-      if self.returncode != 0 and check_error:
-        print "***ERROR*** for '{0}'".format(cmd)
-        print self.stderrdata,
-      else:
-        print self.stdoutdata,
+    self.run_a_cmd(args, check_error, print_output)
 
 class NoOperation(Operation):
   name = 'no_operation'
@@ -421,6 +418,7 @@ def interactive():
   return ([site_option], op_option)
 
 set_verbose(False)
+set_sysout_callback(None)
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Manage drupal sites',
