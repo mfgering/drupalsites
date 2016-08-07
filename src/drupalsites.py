@@ -272,7 +272,7 @@ class RemoteUpdateDB(Operation):
 
 class LocalUpdates(Operation):
   name = 'local_updates'
-  desc = 'Pull from master, update modules, commit and push to master'
+  desc = 'Pull from master, update modules & db, commit and push to master'
   
   def __init__(self, site):
     self.site = site
@@ -281,6 +281,7 @@ class LocalUpdates(Operation):
   def do_cmd(self):
     self.sys_cmd('git pull'.format(self.site.doc_root))
     self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
+    self.site.get_operation('local_update_db').do_cmd()    
     self.sys_cmd('git checkout .gitignore .htaccess'.format(self.site.doc_root))
     self.sys_cmd('git add *'.format(self.site.doc_root))
     self.sys_cmd('git commit -a -m "updates"'.format(self.site.doc_root), check_error=False)
