@@ -14,13 +14,17 @@ def set_verbose(val):
   global verbose
   verbose = val
 
-def set_sysout_callback(cb):
-  global sysout_callback
-  sysout_callback = cb
+def set_operation_output(obj):
+  global op_output
+  op_output = obj
 
-def get_sysout_callback():
-  global sysout_callback
-  return sysout_callback
+op_output = None
+
+def get_operation_output():
+  global op_output
+  if op_output is None:
+    op_output = OperationOutput()
+  return op_output
 
 def init_sites():
   sites = {}
@@ -38,14 +42,20 @@ def trace_op(func):
     site_str = ''
     if hasattr(self, 'site'):
       site_str = "{}: ".format(self.site.name)
-    print "-----> {}Starting {}".format(site_str, self.name)
+    get_operation_output().write("-----> {}Starting {}\n".format(site_str, self.name))
     func(self)
-    print "<----- {}Ending {}".format(site_str, self.name)
+    get_operation_output().write("<----- {}Ending {}\n".format(site_str, self.name))
   return func_wrapper
 
 class Operation(object):
   name = None
+  desc = None
   
+  def __init__(self, site = None):
+    self.site = site
+    self.cmds = []
+    self.cmd_outputs = []
+
   @abc.abstractmethod
   def do_cmd(self):
     """Perform a command"""
@@ -53,25 +63,28 @@ class Operation(object):
   
   def run_a_cmd(self, args, check_error = True, print_output = True, shell=False):
     global verbose
-    cb = get_sysout_callback()
     cmd = ' '.join(args)
+    self.cmds.append(cmd)
     if verbose:
-      print cmd
+      get_operation_output().write(cmd+'\n')
+    cmd_output = ''
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
     while True:
       next_line = p.stdout.readline()
       if next_line == '' and p.poll() is not None:
         break
-      if cb is not None:
-        cb(next_line)
-    (self.stdoutdata, self.stderrdata) = p.communicate()
+      cmd_output += next_line
+      if print_output:
+        get_operation_output().write(next_line)
+    cmd_output += next_line
+    self.cmd_outputs.append(cmd_output)
     self.returncode = p.returncode
     if print_output:
       if self.returncode != 0 and check_error:
-        print "***ERROR*** for '{0}'".format(cmd)
-        print self.stderrdata,
+        get_operation_output().write("***ERROR*** for '{0}'\n".format(cmd))
+        get_operation_output().write(self.stderrdata)
       else:
-        print self.stdoutdata,
+        get_operation_output().write(next_line)
     
   
   def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False):
@@ -79,22 +92,6 @@ class Operation(object):
     args = shlex.split(cmd)
     self.run_a_cmd(args, check_error, print_output, shell)
 
-  def sys_cmd_old(self, cmd, check_error = True, print_output = True, shell = False):
-    global verbose
-    if verbose:
-      print cmd
-    os.chdir(self.site.doc_root)
-    args = shlex.split(cmd)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
-    (self.stdoutdata, self.stderrdata) = p.communicate()
-    self.returncode = p.returncode
-    if print_output:
-      if self.returncode != 0 and check_error:
-        print "***ERROR*** for '{0}'".format(cmd)
-        print self.stderrdata,
-      else:
-        print self.stdoutdata,
-    
   def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True):
     if tty:
       args = ['ssh', '-t', self.site.ssh_alias, cmd]
@@ -105,20 +102,20 @@ class Operation(object):
 class NoOperation(Operation):
   name = 'no_operation'
   desc = 'Does nothing'
-  
+
   def __init__(self, site):
-    self.site = site
+    super(NoOperation, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
-    print "Can't perform"
+    get_operation_output().write("Can't perform")
   
 class RemoteCheckCert(Operation):
   name = 'remote_cert'
   desc = 'Remote tls cert check'
   
   def __init__(self, site):
-    self.site = site
+    super(RemoteCheckCert, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -133,19 +130,19 @@ class RemoteCheckCert(Operation):
       m = p.search(str2)
       if not m is None:
         str3 = str2[:m.start()]
-        print "Certificate info:\n"+str3+"\n"
+        get_operation_output().write("Certificate info:\n"+str3+"\n")
       else:
-        print "Can't find the end"
+        get_operation_output().write("Can't find the end\n")
     else:
       #server certificate verification
-      print "NO MATCH"
+      get_operation_output().write("NO MATCH")
 
 class RemoteClearCache(Operation):
   name = 'remote_cc'
   desc = 'Remote clear cache'
-  
+
   def __init__(self, site):
-    self.site = site
+    super(RemoteClearCache, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -157,7 +154,7 @@ class Remote2LocalRestore(Operation):
   desc = 'Snapshot remote, sync backupfiles to local, restore snapshot on local'
 
   def __init__(self, site):
-    self.site = site
+    super(Remote2LocalRestore, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -170,7 +167,7 @@ class RemoteBackup(Operation):
   desc = 'Snapshot remote (snapshot.mysql.gz in manual directory)'
   
   def __init__(self, site):
-    self.site = site
+    super(RemoteBackup, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -184,7 +181,7 @@ class Remote2LocalBamFiles(Operation):
   desc = 'Sync remote backup files to local system'
   
   def __init__(self, site):
-    self.site = site
+    super(Remote2LocalBamFiles, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -197,7 +194,7 @@ class Remote2LocalDefaultFiles(Operation):
   desc = 'Sync remote default/files to local system'
   
   def __init__(self, site):
-    self.site = site
+    super(Remote2LocalDefaultFiles, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -211,7 +208,7 @@ class LocalFixPerms(Operation):
   desc = 'Fix local files file permissions'
   
   def __init__(self, site):
-    self.site = site
+    super(LocalFixPerms, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -225,7 +222,7 @@ class LocalRestore(Operation):
   desc = 'Restore db from snapshot in manual backup directory'
   
   def __init__(self, site):
-    self.site = site
+    super(LocalRestore, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -237,7 +234,7 @@ class RemotePull(Operation):
   desc = 'Do git pull on remote system'
   
   def __init__(self, site):
-    self.site = site
+    super(RemotePull, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -248,7 +245,7 @@ class RemoteUpdates(Operation):
   desc = 'Backup remote, remote git pull, remote drush updatedb'
   
   def __init__(self, site):
-    self.site = site
+    super(RemoteUpdates, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -261,7 +258,7 @@ class RemoteUpdateDB(Operation):
   desc = 'Remote drush updatedb'
   
   def __init__(self, site):
-    self.site = site
+    super(RemoteUpdateDB, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -272,7 +269,7 @@ class LocalUpdates(Operation):
   desc = 'Pull from master, update modules & db, commit and push to master'
   
   def __init__(self, site):
-    self.site = site
+    super(LocalUpdates, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -289,7 +286,7 @@ class LocalUpdateDB(Operation):
   desc = 'Local drush updatedb'
   
   def __init__(self, site):
-    self.site = site
+    super(LocalUpdateDB, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
@@ -300,21 +297,26 @@ class LocalUpdateStatus(Operation):
   desc = 'Pull from master, check for updates'
   
   def __init__(self, site):
-    self.site = site
+    super(LocalUpdateStatus, self).__init__(site)
 
   @trace_op
   def do_cmd(self):
     self.sys_cmd('git pull'.format(self.site.doc_root), print_output=False)
-    if self.stdoutdata.find("Already up-to-date.") < 0:
-      print "git pulled:\n"+self.stdoutdata
+    if self.cmd_outputs[-1].find("Already up-to-date.") < 0:
+      get_operation_output().write("git pulled:\n"+self.cmd_outputs[-1])
     self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
-    modules_to_update = self.stdoutdata.split("\n")
+    modules_to_update = self.cmd_outputs[-1].split("\n")
     if len(modules_to_update) > 1: # Note that the last module has a newline
       modules_to_update.pop()
-      print "****** {} modules need updating: {}".format(len(modules_to_update), ", ".join(modules_to_update))
+      get_operation_output().write("****** {} modules need updating: {}\n".format(len(modules_to_update), ", ".join(modules_to_update)))
     else:
-      print "modules are up-to-date"
+      get_operation_output().write("modules are up-to-date\n")
 
+class OperationOutput(object):
+  
+  def write(self, msg):
+    sys.stdout.write(msg)
+  
 OperationClasses = [RemoteClearCache,
   Remote2LocalRestore,
   RemoteBackup,
@@ -418,7 +420,6 @@ def interactive():
   return ([site_option], op_option)
 
 set_verbose(False)
-set_sysout_callback(None)
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Manage drupal sites',
@@ -463,6 +464,6 @@ if __name__ == "__main__":
           operation.do_cmd()
   finally:
     if errors == 0:
-      print("Done")
+      get_operation_output().write("Done\n")
     else:
-      print("Done with {0} errors".format(errors))
+      get_operation_output().write("Done with {0} errors\n".format(errors))
