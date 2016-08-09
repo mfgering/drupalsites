@@ -9,10 +9,16 @@ import subprocess
 import sys
 import textwrap
 import re
+import datetime
+from gtweak import VERBOSE
 
 def set_verbose(val):
   global verbose
   verbose = val
+  
+def get_verbose():
+  global verbose
+  return verbose
 
 def set_operation_output(obj):
   global op_output
@@ -76,6 +82,7 @@ class Operation(object):
       cmd_output += next_line
       if print_output:
         get_operation_output().write(next_line)
+    (next_line, self.stderrdata) = p.communicate()
     cmd_output += next_line
     self.cmd_outputs.append(cmd_output)
     self.returncode = p.returncode
@@ -121,6 +128,7 @@ class RemoteCheckCert(Operation):
   def do_cmd(self):
     cmd = 'curl -v \'https://{}\''.format(self.site.base_domain)
     self.sys_cmd(cmd, print_output=False)
+    #print self.stderrdata
     p = re.compile('Server certificate.*$|server certificate verification.*$', re.MULTILINE)
     m = p.search(self.stderrdata)
     if not m is None:
@@ -128,9 +136,32 @@ class RemoteCheckCert(Operation):
       str2 = self.stderrdata[end_pos:]
       p = re.compile('^>', re.MULTILINE)
       m = p.search(str2)
-      if not m is None:
+      if m is not None:
         str3 = str2[:m.start()]
-        get_operation_output().write("Certificate info:\n"+str3+"\n")
+        if get_verbose():
+          get_operation_output().write("Certificate info:\n"+str3+"\n")
+        # Find the start date, expire date, and compute how many days left
+        m = re.search(r'start date:\s+(.*)', str3)
+        if m is not None:
+          start_str = m.group(1)
+          start_time = datetime.datetime.strptime(start_str, "%a, %d %b %Y %H:%M:%S %Z")
+          get_operation_output().write("Start date:  {:%m/%d/%Y}\n".format(start_time))
+        m = re.search(r'expire date:\s+(.*)', str3)
+        if m is not None:
+          expire_str = m.group(1)
+          expire_time = datetime.datetime.strptime(expire_str, "%a, %d %b %Y %H:%M:%S %Z")
+          get_operation_output().write("Expire date: {:%m/%d/%Y}\n".format(expire_time))
+          now = datetime.datetime.now()
+          to_expire = expire_time - now
+          if to_expire.days > 14:
+            msg = "Expires in {0} days\n".format(to_expire.days)
+          elif to_expire.days <= 0:
+            msg = "!!!!!!!!Expired {0} days ago\n".format(-to_expire.days)
+          else:
+            msg = "********Expires in {0} days\n".format(to_expire.days)
+          get_operation_output().write(msg)
+        #TODO: FIX
+        # datetime.datetime.strptime(s, "%a, %d %b %Y %H:%M:%S %Z")
       else:
         get_operation_output().write("Can't find the end\n")
     else:

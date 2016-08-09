@@ -17,7 +17,8 @@ class QtOperationOutput(drupalsites.OperationOutput):
     self.widget = widget
   
   def write(self, msg):
-    self.widget.emit([msg.rstrip()])
+    if msg != '':
+      self.widget.emit([msg.rstrip()])
   
 class SitesOpWorker(PySide.QtCore.QObject):
   def __init__(self):
