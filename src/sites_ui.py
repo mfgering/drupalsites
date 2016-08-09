@@ -5,17 +5,12 @@ Created on Jan 25, 2016
 @author: mgering
 '''
 import sys
-import time
-from PySide.QtCore import *
-from PySide.QtGui import *
+import drupalsites
+import PySide.QtCore
+import PySide.QtGui
 from qt_sites_ui import *
-from drupalsites import *
-from __builtin__ import xrange
-from contextlib import contextmanager
-import StringIO
-from web_drupalsites import perform_site_op
 
-class QtOperationOutput(OperationOutput):
+class QtOperationOutput(drupalsites.OperationOutput):
   
   def __init__(self, widget):
     super(QtOperationOutput, self).__init__()
@@ -24,12 +19,12 @@ class QtOperationOutput(OperationOutput):
   def write(self, msg):
     self.widget.emit([msg.rstrip()])
   
-class SitesOpWorker(QObject):
+class SitesOpWorker(PySide.QtCore.QObject):
   def __init__(self):
     super(SitesOpWorker, self).__init__()
     self.start.connect(self.perform)
     self.operation_output =  QtOperationOutput(self.progress)
-    set_operation_output(self.operation_output)
+    drupalsites.set_operation_output(self.operation_output)
   
   start = QtCore.Signal(list, str, bool, bool)
   finished = QtCore.Signal(str)
@@ -54,9 +49,9 @@ class SitesOpWorker(QObject):
     
   def perform_site_op(self, site_name, op_name, verbose_opt, dry_run_opt):
     msgs = []
-    site = sites[site_name]
+    site = drupalsites.sites[site_name]
     operation = site.get_operation(op_name)
-    set_verbose(verbose_opt)
+    drupalsites.set_verbose(verbose_opt)
     
     if dry_run_opt:
       msgs.append("Dry run for operation {} on site {}".format(operation.name, site.name))
@@ -64,9 +59,9 @@ class SitesOpWorker(QObject):
       operation.do_cmd()
     return {'msgs': msgs}
 
-class MyManageDialog(QDialog, Ui_ManageDialog):
+class MyManageDialog(PySide.QtGui.QDialog, Ui_ManageDialog):
   def __init__(self, parent=None):
-    QDialog.__init__(self)
+    PySide.QtGui.QDialog.__init__(self)
     super(Ui_ManageDialog, self).__init__(parent)
     self.__index = 0
     self.setupUi(self)
@@ -81,17 +76,17 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
     
     self.allSitesCheckBox.clicked.connect(self.all_sites_clicked)
     self.site_checkboxes = []
-    for site in sorted(sites):
+    for site in sorted(drupalsites.sites):
       item = QtGui.QListWidgetItem(self.sitesListWidget)
       check = QtGui.QCheckBox(site)
       check.setObjectName(site)
       self.site_checkboxes.append(check)
       self.sitesListWidget.setItemWidget(item, check)
     self.op_radios = []
-    for op in sorted(Site.operations):
+    for op in sorted(drupalsites.Site.operations):
       item = QtGui.QListWidgetItem(self.opListWidget)
       radio = QtGui.QRadioButton(op)
-      radio.setToolTip(Site.operations[op].desc)
+      radio.setToolTip(drupalsites.Site.operations[op].desc)
       self.op_radios.append(radio)
       self.opListWidget.setItemWidget(item, radio)
     self.buttonBox.button(QtGui.QDialogButtonBox.Apply).clicked.connect(self.apply)
@@ -126,7 +121,7 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
     verbose_opt = self.verbose_check.checkState()
     dry_run_opt = self.dry_run_check.checkState()
     self.msgsTextBrowser.clear()
-    apply_button = self.buttonBox.button(QDialogButtonBox.Apply)
+    apply_button = self.buttonBox.button(PySide.QtGui.QDialogButtonBox.Apply)
     apply_button.setEnabled(False)
     self.worker.start.emit(sites, op, verbose_opt, dry_run_opt)
   
@@ -135,13 +130,13 @@ class MyManageDialog(QDialog, Ui_ManageDialog):
   
   def worker_finished(self, msg):
     self.msgsTextBrowser.append(msg)
-    apply_button = self.buttonBox.button(QDialogButtonBox.Apply)
+    apply_button = self.buttonBox.button(PySide.QtGui.QDialogButtonBox.Apply)
     apply_button.setEnabled(True)
   
 
 if __name__ == '__main__':
   # Create a Qt application
-  app = QApplication(sys.argv)
+  app = PySide.QtGui.QApplication(sys.argv)
   dlg = MyManageDialog()
   dlg.show()
   
