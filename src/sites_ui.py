@@ -15,41 +15,27 @@ from contextlib import contextmanager
 import StringIO
 from web_drupalsites import perform_site_op
 
-def ui_sysout_callback(msg):
-  print "*************** in callback"
-  global sysout_obj
-  sysout_obj.sysout_callback(msg)
-
-@contextmanager
-def stdout_redirector(stream):
-    old_stdout = sys.stdout
-    sys.stdout = stream
-    try:
-        yield
-    finally:
-        sys.stdout = old_stdout
-
+class QtOperationOutput(OperationOutput):
+  
+  def __init__(self, widget):
+    super(QtOperationOutput, self).__init__()
+    self.widget = widget
+  
+  def write(self, msg):
+    self.widget.emit([msg.rstrip()])
+  
 class SitesOpWorker(QObject):
   def __init__(self):
     super(SitesOpWorker, self).__init__()
     self.start.connect(self.perform)
+    self.operation_output =  QtOperationOutput(self.progress)
+    set_operation_output(self.operation_output)
   
   start = QtCore.Signal(list, str, bool, bool)
   finished = QtCore.Signal(str)
   progress = QtCore.Signal(list)
   
-  def sysout_callback(self, msg):
-    print ">>>>>***********************************************************"
-    print msg
-    print "<<<<<<<***********************************************************"
-    self.progress.emit([msg])
-    
-  
   def perform(self, sites, op_name, verbose_opt, dry_run_opt):
-    global sysout_obj
-    sysout_obj = self
-    set_sysout_callback(ui_sysout_callback)
-    
     errors = 0
     msgs = []
     if op_name == '':
@@ -75,13 +61,7 @@ class SitesOpWorker(QObject):
     if dry_run_opt:
       msgs.append("Dry run for operation {} on site {}".format(operation.name, site.name))
     else:
-       operation.do_cmd()
-#      std_str = StringIO.StringIO()
-#       with stdout_redirector(std_str):
-#         operation.do_cmd()
-#         msg = std_str.getvalue()
-#         msgs.append(msg)
-#         std_str.close()
+      operation.do_cmd()
     return {'msgs': msgs}
 
 class MyManageDialog(QDialog, Ui_ManageDialog):
