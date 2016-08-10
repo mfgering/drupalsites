@@ -10,7 +10,6 @@ import sys
 import textwrap
 import re
 import datetime
-from gtweak import VERBOSE
 
 def set_verbose(val):
   global verbose
