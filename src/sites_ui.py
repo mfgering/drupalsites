@@ -4,6 +4,10 @@ Created on Jan 25, 2016
 
 @author: mgering
 '''
+# import ptvsd
+# ptvsd.enable_attach(secret='my_secret', address = ('0.0.0.0', 3000))
+# ptvsd.wait_for_attach()
+
 import sys
 import drupalsites
 import PySide.QtCore
