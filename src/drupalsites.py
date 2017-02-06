@@ -35,7 +35,6 @@ def init_sites():
   sites = {}
   sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs', base_domain='gattishouse.com')
   sites['lnba'] = Site('lnba', 'lnba', '/var/www/dev.lnba.net/htdocs', base_domain='lnba.net')
-  sites['stem'] = Site('stem', 'stem', '/var/www/dev.stemnc.org/htdocs', base_domain='stemnc.org')
   sites['unrba'] = Site('unrba', 'unrba', '/var/www/dev.unrba.org/htdocs', base_domain='unrba.org')
   sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs', base_domain="yadkinpeedee.org")
   return sites
