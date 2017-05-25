@@ -140,12 +140,31 @@ class RemoteCheckCert(Operation):
         m = re.search(r'start date:\s+(.*)', str3)
         if m is not None:
           start_str = m.group(1)
-          start_time = datetime.datetime.strptime(start_str, "%a, %d %b %Y %H:%M:%S %Z")
+          date_formats = ["%a, %d %b %Y %H:%M:%S %Z",
+                     "%b %d %H:%M:%S %Y %Z",
+          ]
+          start_time = None
+          for format in date_formats:
+            try:
+              start_time = datetime.datetime.strptime(start_str, format)
+              break
+            except ValueError:
+              pass
+          if start_time is None:
+            raise ValueError("No format matches the start time: %s" % start_str)
           get_operation_output().write("Start date:  {:%m/%d/%Y}\n".format(start_time))
         m = re.search(r'expire date:\s+(.*)', str3)
         if m is not None:
           expire_str = m.group(1)
-          expire_time = datetime.datetime.strptime(expire_str, "%a, %d %b %Y %H:%M:%S %Z")
+          expire_time = None
+          for format in date_formats:
+            try:
+              expire_time = datetime.datetime.strptime(expire_str, format)
+              break
+            except ValueError:
+              pass
+          if expire_time is None:
+              raise ValueError("No format matches the expiration time: %s" % expire_str)
           get_operation_output().write("Expire date: {:%m/%d/%Y}\n".format(expire_time))
           now = datetime.datetime.now()
           to_expire = expire_time - now
