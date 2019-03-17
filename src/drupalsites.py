@@ -32,11 +32,13 @@ def get_operation_output():
   return op_output
 
 def init_sites():
+  # Site init: name, ssh_alias, doc_root, vps_dir = 'www', bam_files = 'sites/default/files/private/backup_migrate', base_domain = ''
   sites = {}
   sites['gattishouse'] = Site('gattishouse', 'gh', '/var/www/dev.gattishouse.com/htdocs', base_domain='gattishouse.com')
   sites['lnba'] = Site('lnba', 'lnba', '/var/www/dev.lnba.net/htdocs', base_domain='lnba.net')
   sites['unrba'] = Site('unrba', 'unrba', '/var/www/dev.unrba.org/htdocs', base_domain='unrba.org')
   sites['ypdrba'] = Site('ypdrba', 'ypdrba', '/var/www/dev.ypdrba.org/htdocs', base_domain="yadkinpeedee.org")
+  sites['ferree-gering'] = Site('ferree-gering', 'fg', '/var/www/dev.ferree-gering.com/htdocs', base_domain='ferree-gering.com')
   return sites
 
 def trace_op(func):
