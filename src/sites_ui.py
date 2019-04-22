@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3.6
 '''
 Created on Jan 25, 2016
 
