@@ -10,8 +10,9 @@ Created on Jan 25, 2016
 
 import sys
 import drupalsites
-import PySide.QtCore
-import PySide.QtGui
+import PySide2.QtCore
+import PySide2.QtWidgets
+
 from qt_sites_ui import *
 
 class QtOperationOutput(drupalsites.OperationOutput):
@@ -24,16 +25,16 @@ class QtOperationOutput(drupalsites.OperationOutput):
     if msg != '':
       self.widget.emit([msg.rstrip()])
   
-class SitesOpWorker(PySide.QtCore.QObject):
+class SitesOpWorker(PySide2.QtCore.QObject):
   def __init__(self):
     super(SitesOpWorker, self).__init__()
     self.start.connect(self.perform)
     self.operation_output =  QtOperationOutput(self.progress)
     drupalsites.set_operation_output(self.operation_output)
   
-  start = QtCore.Signal(list, str, bool, bool)
-  finished = QtCore.Signal(str)
-  progress = QtCore.Signal(list)
+  start = PySide2.QtCore.Signal(list, str, bool, bool)
+  finished = PySide2.QtCore.Signal(str)
+  progress = PySide2.QtCore.Signal(list)
   
   def perform(self, sites, op_name, verbose_opt, dry_run_opt):
     errors = 0
@@ -64,39 +65,39 @@ class SitesOpWorker(PySide.QtCore.QObject):
       operation.do_cmd()
     return {'msgs': msgs}
 
-class MyManageDialog(PySide.QtGui.QDialog, Ui_ManageDialog):
+class MyManageDialog(PySide2.QtWidgets.QDialog, Ui_ManageDialog):
   def __init__(self, parent=None):
-    PySide.QtGui.QDialog.__init__(self)
-    super(Ui_ManageDialog, self).__init__(parent)
+    PySide2.QtWidgets.QDialog.__init__(self)
+    super(Ui_ManageDialog, self).__init__()
     self.__index = 0
     self.setupUi(self)
     self.update()
     
-    item = QtGui.QListWidgetItem(self.optionListWidget)
-    self.verbose_check = QtGui.QCheckBox('verbose')
+    item = PySide2.QtWidgets.QListWidgetItem(self.optionListWidget)
+    self.verbose_check = PySide2.QtWidgets.QCheckBox('verbose')
     self.optionListWidget.setItemWidget(item, self.verbose_check)
-    item = QtGui.QListWidgetItem(self.optionListWidget)
-    self.dry_run_check = QtGui.QCheckBox('dry run')
+    item = PySide2.QtWidgets.QListWidgetItem(self.optionListWidget)
+    self.dry_run_check = PySide2.QtWidgets.QCheckBox('dry run')
     self.optionListWidget.setItemWidget(item, self.dry_run_check)
     
     self.allSitesCheckBox.clicked.connect(self.all_sites_clicked)
     self.site_checkboxes = []
     for site in sorted(drupalsites.sites):
-      item = QtGui.QListWidgetItem(self.sitesListWidget)
-      check = QtGui.QCheckBox(site)
+      item = PySide2.QtWidgets.QListWidgetItem(self.sitesListWidget)
+      check = PySide2.QtWidgets.QCheckBox(site)
       check.setObjectName(site)
       self.site_checkboxes.append(check)
       self.sitesListWidget.setItemWidget(item, check)
     self.op_radios = []
     for op in sorted(drupalsites.Site.operations):
-      item = QtGui.QListWidgetItem(self.opListWidget)
-      radio = QtGui.QRadioButton(op)
+      item = PySide2.QtWidgets.QListWidgetItem(self.opListWidget)
+      radio = PySide2.QtWidgets.QRadioButton(op)
       radio.setToolTip(drupalsites.Site.operations[op].desc)
       self.op_radios.append(radio)
       self.opListWidget.setItemWidget(item, radio)
-    self.buttonBox.button(QtGui.QDialogButtonBox.Apply).clicked.connect(self.apply)
+    self.buttonBox.button(PySide2.QtWidgets.QDialogButtonBox.Apply).clicked.connect(self.apply)
     
-    self.site_op_thread = QtCore.QThread()
+    self.site_op_thread = PySide2.QtCore.QThread()
     self.site_op_thread.start()
     self.worker = SitesOpWorker()
     self.worker.moveToThread(self.site_op_thread)
@@ -116,7 +117,7 @@ class MyManageDialog(PySide.QtGui.QDialog, Ui_ManageDialog):
     sites = []
     for check in self.site_checkboxes:
       state = check.checkState()
-      if state == QtCore.Qt.CheckState.Checked:
+      if state == PySide2.QtCore.Qt.CheckState.Checked:
         sites.append(check.text())
     op = None
     for radio in self.op_radios:
@@ -126,7 +127,7 @@ class MyManageDialog(PySide.QtGui.QDialog, Ui_ManageDialog):
     verbose_opt = self.verbose_check.checkState()
     dry_run_opt = self.dry_run_check.checkState()
     self.msgsTextBrowser.clear()
-    apply_button = self.buttonBox.button(PySide.QtGui.QDialogButtonBox.Apply)
+    apply_button = self.buttonBox.button(PySide2.QtWidgets.QDialogButtonBox.Apply)
     apply_button.setEnabled(False)
     self.worker.start.emit(sites, op, verbose_opt, dry_run_opt)
   
@@ -135,13 +136,13 @@ class MyManageDialog(PySide.QtGui.QDialog, Ui_ManageDialog):
   
   def worker_finished(self, msg):
     self.msgsTextBrowser.append(msg)
-    apply_button = self.buttonBox.button(PySide.QtGui.QDialogButtonBox.Apply)
+    apply_button = self.buttonBox.button(PySide2.QtWidgets.QDialogButtonBox.Apply)
     apply_button.setEnabled(True)
-  
+
 
 if __name__ == '__main__':
   # Create a Qt application
-  app = PySide.QtGui.QApplication(sys.argv)
+  app = PySide2.QtWidgets.QApplication(sys.argv)
   dlg = MyManageDialog()
   dlg.show()
   

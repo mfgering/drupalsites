@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Author: Mike Gering
 
 import abc
@@ -71,19 +71,27 @@ class Operation(object):
     self.cmds.append(cmd)
     if verbose:
       get_operation_output().write(cmd+'\n')
-    cmd_output = ''
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
-    while True:
-      next_line = p.stdout.readline()
-      if next_line == '' and p.poll() is not None:
-        break
-      cmd_output += next_line
-      if print_output:
-        get_operation_output().write(next_line)
-    (next_line, self.stderrdata) = p.communicate()
-    cmd_output += next_line
+    print("************ about to subprocess\n")
+    completed_process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=shell)
+    cmd_output = str(completed_process.stdout, 'utf-8')
+    self.returncode = completed_process.returncode
+    print("*************completed: "+completed_process)
+
+    #cmd_output = ''
+    #p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
+    #print("************* Running "+cmd)
+    #while True:
+    #  next_line = p.stdout.readline()
+    #  print("********** line:"+next_line)
+    #  if next_line == '' and p.poll() is not None:
+    #    break
+    #  cmd_output += next_line
+    #  if print_output:
+    #    get_operation_output().write(next_line)
+    #(next_line, self.stderrdata) = p.communicate()
+    #cmd_output += next_line
     self.cmd_outputs.append(cmd_output)
-    self.returncode = p.returncode
+    #self.returncode = p.returncode
     if print_output:
       if self.returncode != 0 and check_error:
         get_operation_output().write("***ERROR*** for '{0}'\n".format(cmd))
@@ -433,12 +441,12 @@ def interactive():
   for site_name in sorted(sites.keys()):
     site_options.append(site_name)
   while site_option is None:
-    print "Sites:"
+    print("Sites:")
     x = 0
     for site_name in site_options:
-      print "  {} {}".format(x, site_name)
+      print("  {} {}".format(x, site_name))
       x += 1
-    site_inp = raw_input("Site [0]? ")
+    site_inp = input("Site [0]? ")
     if site_inp == '':
       site_inp = '0'
     try:
@@ -454,9 +462,9 @@ def interactive():
     x = 0
     op_keys = sorted(Site.operations.keys())
     for op_name in op_keys:
-      print "  {} {}".format(x, op_name)
+      print("  {} {}".format(x, op_name))
       x += 1
-    op_inp = raw_input("Operation? ")
+    op_inp = input("Operation? ")
     try:
       op_num = int(op_inp)
       if op_num < 0 or op_num >= len(Site.operations):
@@ -469,7 +477,17 @@ def interactive():
 
 set_verbose(False)
 
+def test():
+  """TODO: REMOVE THIS"""
+  print("**** Testing\n")
+  cmd = 'ls -l'
+  args =['ssh', 'fg', cmd]
+  result = subprocess.run(args, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+  print("**** result"+str(result))
+  sys.exit()
+
 if __name__ == "__main__":
+  #test()
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -490,18 +508,18 @@ if __name__ == "__main__":
     else:
       op_option = args.op
       site_option = args.sites
-    if not Site.operations.has_key(op_option):
-      print "Operation {0} is not recognized.".format(op_option)
+    if not op_option in Site.operations:
+      print("Operation {0} is not recognized.".format(op_option))
       errors += 1
     sites_to_do = set()
     for site_name in site_option:
       if site_name == 'all':
         sites_to_do = set(sites.values())
       else:
-        if sites.has_key(site_name):
+        if site_name in sites:
           sites_to_do.add(sites[site_name])
         else:
-          print "No site named '{0}'".format(site_name)
+          print("No site named '{0}'".format(site_name))
           errors += 1
     if errors == 0:
       for site in sites_to_do:

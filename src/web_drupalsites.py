@@ -70,6 +70,6 @@ if __name__ == '__main__':
       except:
         pass
   except:
-    print "Problem openning config.yaml"
-  print app
+    print("Problem openning config.yaml")
+  print(app)
   app.run(host='0.0.0.0')
