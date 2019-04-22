@@ -71,34 +71,15 @@ class Operation(object):
     self.cmds.append(cmd)
     if verbose:
       get_operation_output().write(cmd+'\n')
-    print("************ about to subprocess\n")
     completed_process = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=shell)
     cmd_output = str(completed_process.stdout, 'utf-8')
     self.returncode = completed_process.returncode
-    print("*************completed: "+completed_process)
-
-    #cmd_output = ''
-    #p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell)
-    #print("************* Running "+cmd)
-    #while True:
-    #  next_line = p.stdout.readline()
-    #  print("********** line:"+next_line)
-    #  if next_line == '' and p.poll() is not None:
-    #    break
-    #  cmd_output += next_line
-    #  if print_output:
-    #    get_operation_output().write(next_line)
-    #(next_line, self.stderrdata) = p.communicate()
-    #cmd_output += next_line
     self.cmd_outputs.append(cmd_output)
-    #self.returncode = p.returncode
     if print_output:
       if self.returncode != 0 and check_error:
         get_operation_output().write("***ERROR*** for '{0}'\n".format(cmd))
-        get_operation_output().write(self.stderrdata)
-      else:
-        get_operation_output().write(next_line)
-    
+      get_operation_output().write(cmd_output)
+
   
   def sys_cmd(self, cmd, check_error = True, print_output = True, shell = False):
     os.chdir(self.site.doc_root)
@@ -477,17 +458,7 @@ def interactive():
 
 set_verbose(False)
 
-def test():
-  """TODO: REMOVE THIS"""
-  print("**** Testing\n")
-  cmd = 'ls -l'
-  args =['ssh', 'fg', cmd]
-  result = subprocess.run(args, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
-  print("**** result"+str(result))
-  sys.exit()
-
 if __name__ == "__main__":
-  #test()
   parser = argparse.ArgumentParser(description='Manage drupal sites',
     epilog=operation_help(),
     formatter_class=argparse.RawDescriptionHelpFormatter)
