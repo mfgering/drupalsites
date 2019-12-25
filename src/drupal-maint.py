@@ -25,7 +25,7 @@ class MyFrame(wx.Frame):
 		self.checkbox_dry_run = wx.CheckBox(self, wx.ID_ANY, "dry run")
 		self.checkbox_all_sites = wx.CheckBox(self, wx.ID_ANY, "All")
 		self.panel_site_list = wx.ScrolledWindow(self, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
-		self.panel_operations = wx.Panel(self, wx.ID_ANY)
+		self.radio_box_ops = OpsRadioBox(self, wx.ID_ANY)
 		self.text_ctrl_log = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
 		self.button_start = wx.Button(self, wx.ID_ANY, "Start")
 		self.button_stop = wx.Button(self, wx.ID_ANY, "Stop")
@@ -50,6 +50,7 @@ class MyFrame(wx.Frame):
 			self.SetMinClientSize((600, 480))
 			self.SetClientSize((600, 480))
 			self.init_sites_panel()
+			self.init_operations_panel()
 		except Exception as exc:
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
@@ -63,7 +64,9 @@ class MyFrame(wx.Frame):
 			self.Bind(wx.EVT_CHECKBOX, self.on_sites_checkbox, checkbox)
 			self.sizer_sites.Add(checkbox, 0, 0, 0)
 
-		print("FOO")
+	def init_operations_panel(self):
+		for op_class in drupalsites.OperationClasses:
+			pass
 
 	def set_button_states(self):
 		options_ok = self.options_ok()
@@ -106,7 +109,7 @@ class MyFrame(wx.Frame):
 		self.frame_statusbar.SetStatusWidths([-1])
 		
 		# statusbar fields
-		frame_statusbar_fields = ["frame_statusbar"]
+		frame_statusbar_fields = [" "]
 		for i in range(len(frame_statusbar_fields)):
 			self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
 		# end wxGlade
@@ -127,7 +130,7 @@ class MyFrame(wx.Frame):
 		self.sizer_sites.Add(self.panel_site_list, 1, wx.EXPAND, 0)
 		sizer_2.Add(self.sizer_sites, 1, wx.ALL | wx.EXPAND, 8)
 		sizer_1.Add(sizer_2, 0, wx.EXPAND, 0)
-		sizer_6.Add(self.panel_operations, 1, wx.EXPAND, 0)
+		sizer_6.Add(self.radio_box_ops, 1, wx.EXPAND, 0)
 		sizer_1.Add(sizer_6, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 		sizer_5.Add(self.text_ctrl_log, 1, wx.EXPAND, 0)
 		sizer_1.Add(sizer_5, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
@@ -145,7 +148,7 @@ class MyFrame(wx.Frame):
 
 	def on_sites_checkbox(self, event):
 		self.checkbox_all_sites.SetValue(False)
-		
+
 	def get_site_checkboxes(self):
 		cboxes = []
 		for ctrl in self.GetChildren():
@@ -196,6 +199,20 @@ class OpThread(threading.Thread):
 		#self.move_checker.stop_processing()
 		self.stopping = True
 
+class OpsRadioBox(wx.RadioBox):
+	def __init__(self, parent, wx_id):
+		self.op_map = {}
+		for clz in drupalsites.OperationClasses:
+			self.op_map[clz.name] = clz
+		self.choices = [*self.op_map.keys()]
+		self.choices.sort()
+		super().__init__(parent, wx_id, "Operations", choices=self.choices, 
+						majorDimension=len(self.choices), style=wx.RA_SPECIFY_ROWS)
+		for i in range(len(self.choices)):
+			self.SetItemToolTip(i, self.op_map[self.choices[i]].desc)
+		default_sel = "local_updates"
+		default_sel_idx = self.choices.index(default_sel)
+		self.SetSelection(default_sel_idx)
 if __name__ == "__main__":
 	app = MyApp(0)
 	app.MainLoop()
