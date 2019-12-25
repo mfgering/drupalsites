@@ -20,12 +20,12 @@ class MyFrame(wx.Frame):
 		# begin wxGlade: MyFrame.__init__
 		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
 		wx.Frame.__init__(self, *args, **kwds)
-		self.SetSize((642, 413))
+		self.SetSize((625, 680))
 		self.checkbox_verbose = wx.CheckBox(self, wx.ID_ANY, "verbose")
 		self.checkbox_dry_run = wx.CheckBox(self, wx.ID_ANY, "dry run")
 		self.checkbox_all_sites = wx.CheckBox(self, wx.ID_ANY, "All")
-		self.panel_site_list = wx.ScrolledWindow(self, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
-		self.radio_box_ops = OpsRadioBox(self, wx.ID_ANY)
+		self.panel_site_list = wx.Panel(self, wx.ID_ANY)
+		self.radio_box_ops_copy_copy = OpsRadioBox(self, wx.ID_ANY)
 		self.text_ctrl_log = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
 		self.button_start = wx.Button(self, wx.ID_ANY, "Start")
 		self.button_stop = wx.Button(self, wx.ID_ANY, "Stop")
@@ -70,7 +70,15 @@ class MyFrame(wx.Frame):
 
 	def set_button_states(self):
 		options_ok = self.options_ok()
-		start = options_ok and \
+		sites = self.get_sites_selected()
+		no_sites_msg = "No sites selected"
+		if len(sites) == 0:
+			self.set_status(no_sites_msg)
+		else:
+			txt = self.GetStatusBar().GetStatusText()
+			if txt == no_sites_msg:
+				self.set_status("")
+		start = options_ok and len(sites) > 0 and \
 				(self.worker_thread is None or \
 				self.worker_thread.done)
 		stop = self.worker_thread is not None and \
@@ -80,6 +88,13 @@ class MyFrame(wx.Frame):
 
 	def options_ok(self):
 		return True
+
+	def get_sites_selected(self):
+		sites = []
+		for cbox in self.get_site_checkboxes():
+			if cbox.IsChecked():
+				sites.append(cbox.site_name)
+		return sites
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -105,7 +120,6 @@ class MyFrame(wx.Frame):
 	def __set_properties(self):
 		# begin wxGlade: MyFrame.__set_properties
 		self.SetTitle("Drupal Site Maintenance")
-		self.panel_site_list.SetScrollRate(10, 10)
 		self.frame_statusbar.SetStatusWidths([-1])
 		
 		# statusbar fields
@@ -119,7 +133,6 @@ class MyFrame(wx.Frame):
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_5 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Log"), wx.HORIZONTAL)
-		sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Operations"), wx.HORIZONTAL)
 		sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
 		self.sizer_sites = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Sites"), wx.VERTICAL)
 		sizer_3 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Options"), wx.VERTICAL)
@@ -130,8 +143,7 @@ class MyFrame(wx.Frame):
 		self.sizer_sites.Add(self.panel_site_list, 1, wx.EXPAND, 0)
 		sizer_2.Add(self.sizer_sites, 1, wx.ALL | wx.EXPAND, 8)
 		sizer_1.Add(sizer_2, 0, wx.EXPAND, 0)
-		sizer_6.Add(self.radio_box_ops, 1, wx.EXPAND, 0)
-		sizer_1.Add(sizer_6, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+		sizer_1.Add(self.radio_box_ops_copy_copy, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 		sizer_5.Add(self.text_ctrl_log, 1, wx.EXPAND, 0)
 		sizer_1.Add(sizer_5, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER | wx.RIGHT, 10)
@@ -145,9 +157,13 @@ class MyFrame(wx.Frame):
 		is_all = event.GetEventObject().IsChecked()
 		for cbox in self.get_site_checkboxes():
 			cbox.SetValue(is_all)
+		self.set_button_states()
 
 	def on_sites_checkbox(self, event):
 		self.checkbox_all_sites.SetValue(False)
+		self.set_button_states()
+		if event.GetEventObject().IsChecked():
+			self.set_status('')
 
 	def get_site_checkboxes(self):
 		cboxes = []
@@ -206,7 +222,7 @@ class OpsRadioBox(wx.RadioBox):
 			self.op_map[clz.name] = clz
 		self.choices = [*self.op_map.keys()]
 		self.choices.sort()
-		super().__init__(parent, wx_id, "Operations", choices=self.choices, 
+		super().__init__(parent, wx_id, "Operations", choices=self.choices,
 						majorDimension=len(self.choices), style=wx.RA_SPECIFY_ROWS)
 		for i in range(len(self.choices)):
 			self.SetItemToolTip(i, self.op_map[self.choices[i]].desc)
