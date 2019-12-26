@@ -20,21 +20,23 @@ class MyFrame(wx.Frame):
 		# begin wxGlade: MyFrame.__init__
 		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
 		wx.Frame.__init__(self, *args, **kwds)
-		self.SetSize((625, 680))
+		self.SetSize((625, 880))
+		self.frame_statusbar = self.CreateStatusBar(1)
 		self.checkbox_verbose = wx.CheckBox(self, wx.ID_ANY, "verbose")
 		self.checkbox_dry_run = wx.CheckBox(self, wx.ID_ANY, "dry run")
 		self.checkbox_all_sites = wx.CheckBox(self, wx.ID_ANY, "All")
 		self.panel_site_list = wx.Panel(self, wx.ID_ANY)
-		self.radio_box_ops_copy_copy = OpsRadioBox(self, wx.ID_ANY)
+		self.radio_box_ops = OpsRadioBox(self, wx.ID_ANY)
 		self.text_ctrl_log = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
 		self.button_start = wx.Button(self, wx.ID_ANY, "Start")
 		self.button_stop = wx.Button(self, wx.ID_ANY, "Stop")
-		self.frame_statusbar = self.CreateStatusBar(1)
 
 		self.__set_properties()
 		self.__do_layout()
 
 		self.Bind(wx.EVT_CHECKBOX, self.on_all_sites, self.checkbox_all_sites)
+		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
+		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
 
 		self.status_timer = None
@@ -122,10 +124,6 @@ class MyFrame(wx.Frame):
 		self.SetTitle("Drupal Site Maintenance")
 		self.frame_statusbar.SetStatusWidths([-1])
 		
-		# statusbar fields
-		frame_statusbar_fields = [" "]
-		for i in range(len(frame_statusbar_fields)):
-			self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
 		# end wxGlade
 
 	def __do_layout(self):
@@ -143,7 +141,7 @@ class MyFrame(wx.Frame):
 		self.sizer_sites.Add(self.panel_site_list, 1, wx.EXPAND, 0)
 		sizer_2.Add(self.sizer_sites, 1, wx.ALL | wx.EXPAND, 8)
 		sizer_1.Add(sizer_2, 0, wx.EXPAND, 0)
-		sizer_1.Add(self.radio_box_ops_copy_copy, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+		sizer_1.Add(self.radio_box_ops, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 		sizer_5.Add(self.text_ctrl_log, 1, wx.EXPAND, 0)
 		sizer_1.Add(sizer_5, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER | wx.RIGHT, 10)
@@ -172,6 +170,32 @@ class MyFrame(wx.Frame):
 				cboxes.append(ctrl)
 		return cboxes
 	
+	def on_start_button(self, event):  # wxGlade: MyFrame.<event_handler>
+		op_clazz = self.radio_box_ops.get_selected_op()
+		sites = self.get_sites_selected()
+		self.set_status("Starting operations")
+		print("Starting operations...")
+		self.ops_running = []
+		for site in sites:
+			site_obj = drupalsites.sites[site]
+			op_thread = OpThread(op_clazz, site_obj, self.handle_op_callback)
+			op_thread.start()
+
+	def handle_op_callback(self, id, args):
+		if id == "op_start":
+			thread_obj = args[0]
+			self.ops_running.append(thread_obj)
+		elif id == "op_end":
+			thread_obj = args[0]
+			self.ops_running.remove(thread_obj)
+			site_name = thread_obj.site.name
+			self.set_status(f"{site_name} finished; {len(self.ops_running)} remaining")
+		else:
+			raise Exception(f"Unknown callback id '{id}'")
+
+	def on_stop_button(self, event):  # wxGlade: MyFrame.<event_handler>
+		print("Event handler 'on_stop_button' not implemented!")
+		event.Skip()
 # end of class MyFrame
 
 class MyApp(wx.App):
@@ -196,20 +220,33 @@ class RedirectText(object):
 			wx.CallAfter(self.out.WriteText, string)
 
 class OpThread(threading.Thread):
-	def __init__(self, callback):
+	thread_map = {}
+
+	def __init__(self, op_clazz:drupalsites.Operation, 
+				 site_obj:drupalsites.Site,
+				 callback=None):
 		super().__init__()
-		self.callback = callback
-		self.errorCount = 0
+		self.callback_callable = callback #TODO: used??
+		self.error_count = 0
 		self.stopping = False
 		self.done = False
+		self.site = site_obj
+		self.op = op_clazz(site_obj)
 
 	def run(self):
+		OpThread.thread_map[threading.current_thread().ident] = self
  		# self.move_checker = movedem.MoveChecker(self.args.dir_old, self.args.dir_new, callback=self.callback, args=self.args)
 		# if self.args.debug:
 		# 	self.move_checker.logger.setLevel(logging.DEBUG)
 		# self.move_checker.do_checks()
-
+		self.callback("op_start", self)
+		self.op.do_cmd()
 		self.done = True
+		self.callback("op_end", self)
+
+	def callback(self, id, *args):
+		if self.callback_callable is not None:
+			wx.CallAfter(self.callback_callable, id, args)
 
 	def stop(self):
 		#self.move_checker.stop_processing()
@@ -229,6 +266,13 @@ class OpsRadioBox(wx.RadioBox):
 		default_sel = "local_updates"
 		default_sel_idx = self.choices.index(default_sel)
 		self.SetSelection(default_sel_idx)
+
+	def get_selected_op(self):
+		idx = self.GetSelection()
+		op_name = self.choices[idx]
+		op = self.op_map[op_name]
+		return op
+
 if __name__ == "__main__":
 	app = MyApp(0)
 	app.MainLoop()
