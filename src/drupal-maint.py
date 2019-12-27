@@ -20,7 +20,7 @@ class MyFrame(wx.Frame):
 		# begin wxGlade: MyFrame.__init__
 		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
 		wx.Frame.__init__(self, *args, **kwds)
-		self.SetSize((625, 880))
+		self.SetSize((625, 680))
 		self.frame_statusbar = self.CreateStatusBar(1)
 		self.checkbox_verbose = wx.CheckBox(self, wx.ID_ANY, "verbose")
 		self.checkbox_dry_run = wx.CheckBox(self, wx.ID_ANY, "dry run")
@@ -40,23 +40,32 @@ class MyFrame(wx.Frame):
 		# end wxGlade
 
 		self.status_timer = None
+		self.ops_running = []
 		try:
 			# redirect text here
-			redir = RedirectText(self.text_ctrl_log, threading.current_thread().ident)
+			#redir = RedirectText(self.text_ctrl_log, threading.current_thread().ident)
+			handler_id = threading.current_thread()
+			redir = StdIOHandler(handler_id, self.stdio_handler)
 			sys.stdout = redir
 			sys.stderr = redir
 			self.worker_thread = None
 			self.gui_thread_id = threading.current_thread().ident
 			#self.args = self.parseArgs()
 			self.set_button_states()
-			self.SetMinClientSize((600, 480))
-			self.SetClientSize((600, 480))
+			self.sizer_5.SetMinSize((600, 480))
+			#self.SetClientSize((600, 480))
 			self.init_sites_panel()
 			self.init_operations_panel()
 		except Exception as exc:
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
 		print("App starting")
+
+	def stdio_handler(self, ident, string_val):
+		if ident in self.ops_running:
+			x = 42 #TODO FIX THIS
+		else:
+			x = 43 #TODO FIX THIS
 
 	def init_sites_panel(self):
 		for site in drupalsites.sites:
@@ -130,7 +139,7 @@ class MyFrame(wx.Frame):
 		# begin wxGlade: MyFrame.__do_layout
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_5 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Log"), wx.HORIZONTAL)
+		self.sizer_5 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Log"), wx.HORIZONTAL)
 		sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
 		self.sizer_sites = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Sites"), wx.VERTICAL)
 		sizer_3 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Options"), wx.VERTICAL)
@@ -142,8 +151,8 @@ class MyFrame(wx.Frame):
 		sizer_2.Add(self.sizer_sites, 1, wx.ALL | wx.EXPAND, 8)
 		sizer_1.Add(sizer_2, 0, wx.EXPAND, 0)
 		sizer_1.Add(self.radio_box_ops, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
-		sizer_5.Add(self.text_ctrl_log, 1, wx.EXPAND, 0)
-		sizer_1.Add(sizer_5, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
+		self.sizer_5.Add(self.text_ctrl_log, 1, wx.EXPAND, 0)
+		sizer_1.Add(self.sizer_5, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER | wx.RIGHT, 10)
 		sizer_7.Add(self.button_stop, 0, wx.LEFT, 10)
 		sizer_1.Add(sizer_7, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 10)
@@ -206,6 +215,14 @@ class MyApp(wx.App):
 		return True
 
 # end of class MyApp
+
+class StdIOHandler(object):
+	def __init__(self, ident, callable_write):
+		self.ident = ident
+		self.callable_write = callable_write
+
+	def write(self, str_val):
+		self.callable_write(self.ident, str_val)
 
 class RedirectText(object):
 	def __init__(self, aWxTextCtrl, guiThreadId):
