@@ -41,6 +41,7 @@ class MyFrame(wx.Frame):
 
 		self.status_timer = None
 		self.ops_running = []
+		self.gui_thread_id = threading.current_thread().ident
 		try:
 			# redirect text here
 			#redir = RedirectText(self.text_ctrl_log, threading.current_thread().ident)
@@ -62,10 +63,14 @@ class MyFrame(wx.Frame):
 		print("App starting")
 
 	def stdio_handler(self, ident, string_val):
-		if ident in self.ops_running:
-			x = 42 #TODO FIX THIS
-		else:
-			x = 43 #TODO FIX THIS
+			curr_thread = threading.current_thread()
+			if isinstance(curr_thread, OpThread) and curr_thread.is_done():
+				curr_thread.save_output(string_val)
+			else:
+				if self.gui_thread_id == curr_thread.ident:
+					self.text_ctrl_log.WriteText(string_val)
+				else:
+					wx.CallAfter(self.text_ctrl_log.WriteText, string_val)
 
 	def init_sites_panel(self):
 		for site in drupalsites.sites:
@@ -188,17 +193,21 @@ class MyFrame(wx.Frame):
 		for site in sites:
 			site_obj = drupalsites.sites[site]
 			op_thread = OpThread(op_clazz, site_obj, self.handle_op_callback)
+			self.ops_running.append(op_thread)
 			op_thread.start()
 
-	def handle_op_callback(self, id, args):
-		if id == "op_start":
+	def handle_op_callback(self, ident_val, args):
+		if ident_val == "op_start":
 			thread_obj = args[0]
-			self.ops_running.append(thread_obj)
-		elif id == "op_end":
+		elif ident_val == "op_end":
 			thread_obj = args[0]
 			self.ops_running.remove(thread_obj)
 			site_name = thread_obj.site.name
 			self.set_status(f"{site_name} finished; {len(self.ops_running)} remaining")
+			op_output = thread_obj.get_output()
+			print(''.join(op_output))
+			if len(self.ops_running) == 0:
+				print("Operations finished")
 		else:
 			raise Exception(f"Unknown callback id '{id}'")
 
@@ -224,6 +233,7 @@ class StdIOHandler(object):
 	def write(self, str_val):
 		self.callable_write(self.ident, str_val)
 
+#TODO: REMOVE THIS
 class RedirectText(object):
 	def __init__(self, aWxTextCtrl, guiThreadId):
 		self.out = aWxTextCtrl
@@ -248,7 +258,8 @@ class OpThread(threading.Thread):
 		self.stopping = False
 		self.done = False
 		self.site = site_obj
-		self.op = op_clazz(site_obj)
+		self.op_obj = op_clazz(site_obj)
+		self.output_arr = []
 
 	def run(self):
 		OpThread.thread_map[threading.current_thread().ident] = self
@@ -257,9 +268,15 @@ class OpThread(threading.Thread):
 		# 	self.move_checker.logger.setLevel(logging.DEBUG)
 		# self.move_checker.do_checks()
 		self.callback("op_start", self)
-		self.op.do_cmd()
+		self.op_obj.do_cmd()
 		self.done = True
 		self.callback("op_end", self)
+
+	def save_output(self, str_val):
+		self.output_arr.append(str_val)
+
+	def get_output(self):
+		return self.output_arr
 
 	def callback(self, id, *args):
 		if self.callback_callable is not None:
@@ -268,6 +285,9 @@ class OpThread(threading.Thread):
 	def stop(self):
 		#self.move_checker.stop_processing()
 		self.stopping = True
+	
+	def is_done(self):
+		return self.is_done
 
 class OpsRadioBox(wx.RadioBox):
 	def __init__(self, parent, wx_id):

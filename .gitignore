@@ -2,6 +2,7 @@
 /.settings/
 /.project
 .idea
+src/*.*~
 src/*.py~
 src/#~wxg.autosave~drupal-maint.wxg#
-src/drupal-maint.wxg~
+
