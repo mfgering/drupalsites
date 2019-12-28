@@ -234,27 +234,14 @@ class StdIOHandler(object):
 	def write(self, str_val):
 		self.callable_write(self.ident, str_val)
 
-#TODO: REMOVE THIS
-class RedirectText(object):
-	def __init__(self, aWxTextCtrl, guiThreadId):
-		self.out = aWxTextCtrl
-		self.guiThreadId = guiThreadId
-
-	def write(self, string):
-		threadId = threading.current_thread().ident
-		if self.guiThreadId == threadId:
-			self.out.WriteText(string)
-		else:
-			wx.CallAfter(self.out.WriteText, string)
-
 class OpThread(threading.Thread):
 	thread_map = {}
 
-	def __init__(self, op_clazz:drupalsites.Operation, 
+	def __init__(self, op_clazz:drupalsites.Operation,
 				 site_obj:drupalsites.Site,
 				 callback=None):
 		super().__init__()
-		self.callback_callable = callback #TODO: used??
+		self.callback_callable = callback
 		self.error_count = 0
 		self.stopping = False
 		self.done = False
