@@ -183,7 +183,7 @@ class RemoteClearCache(Operation):
 
 	@trace_op
 	def do_cmd(self):
-		cmd = 'cd {} && drush cc all'.format(self.site.vps_dir)
+		cmd = 'cd {} && drush --nocolor cc all'.format(self.site.vps_dir)
 		self.ssh_cmd(cmd, tty=True)
 
 class Remote2LocalRestore(Operation):
@@ -210,7 +210,7 @@ class RemoteBackup(Operation):
 	def do_cmd(self):
 		cmd = "cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz".format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
 		self.ssh_cmd(cmd, check_error=False)
-		cmd = "cd {} && drush bam-backup db manual snapshot".format(self.site.vps_dir)
+		cmd = "cd {} && drush --nocolor bam-backup db manual snapshot".format(self.site.vps_dir)
 		self.ssh_cmd(cmd, tty=True)
 
 class Remote2LocalBamFiles(Operation):
@@ -263,7 +263,7 @@ class LocalRestore(Operation):
 
 	@trace_op
 	def do_cmd(self):
-		cmd = 'drush --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
+		cmd = 'drush --nocolor --root={} --yes bam-restore db manual snapshot.mysql.gz'.format(self.site.doc_root)
 		self.sys_cmd(cmd)
 
 class RemotePull(Operation):
@@ -311,7 +311,7 @@ class LocalUpdates(Operation):
 	@trace_op
 	def do_cmd(self):
 		self.sys_cmd('git pull'.format(self.site.doc_root))
-		self.sys_cmd('drush --root={} --yes up'.format(self.site.doc_root), check_error=False)
+		self.sys_cmd('drush --nocolor --root={} --yes up'.format(self.site.doc_root), check_error=False)
 		self.site.get_operation('local_update_db').do_cmd()		
 		self.sys_cmd('git checkout .gitignore .htaccess'.format(self.site.doc_root))
 		self.sys_cmd('git add *'.format(self.site.doc_root))
@@ -341,7 +341,7 @@ class LocalUpdateStatus(Operation):
 		self.sys_cmd('git pull'.format(self.site.doc_root), print_output=False)
 		if self.cmd_outputs[-1].find("Already up-to-date.") < 0:
 			get_operation_output().write("git pulled:\n"+self.cmd_outputs[-1])
-		self.sys_cmd('drush --root={} --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
+		self.sys_cmd('drush --nocolor --root={} --format=list ups'.format(self.site.doc_root), check_error=False, print_output=False)
 		modules_to_update = self.cmd_outputs[-1].split("\n")
 		if len(modules_to_update) > 1: # Note that the last module has a newline
 			modules_to_update.pop()
