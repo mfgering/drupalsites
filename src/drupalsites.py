@@ -299,7 +299,7 @@ class RemoteUpdateDB(Operation):
 
 	@trace_op
 	def do_cmd(self):
-		self.ssh_cmd("cd {} && drush --yes updatedb".format(self.site.vps_dir))
+		self.ssh_cmd("cd {} && drush --nocolor --yes updatedb".format(self.site.vps_dir))
 
 class LocalUpdates(Operation):
 	name = 'local_updates'
@@ -327,7 +327,7 @@ class LocalUpdateDB(Operation):
 
 	@trace_op
 	def do_cmd(self):
-		self.sys_cmd('drush --root={} --yes updatedb'.format(self.site.doc_root), check_error=False)
+		self.sys_cmd('drush --nocolor --root={} --yes updatedb'.format(self.site.doc_root), check_error=False)
 
 class LocalUpdateStatus(Operation):
 	name = 'local_update_status'
