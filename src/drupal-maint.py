@@ -138,6 +138,7 @@ class MyFrame(wx.Frame):
 		self.SetTitle("Drupal Site Maintenance")
 		self.frame_statusbar.SetStatusWidths([-1])
 		
+		self.text_ctrl_log.SetFont(wx.Font(10, wx.TELETYPE, wx.NORMAL, wx.NORMAL, 0, "Ubuntu Mono"))
 		# end wxGlade
 
 	def __do_layout(self):
