@@ -43,8 +43,6 @@ class MyFrame(wx.Frame):
 		self.ops_running = []
 		self.gui_thread_id = threading.current_thread().ident
 		try:
-			# redirect text here
-			#redir = RedirectText(self.text_ctrl_log, threading.current_thread().ident)
 			handler_id = threading.current_thread()
 			redir = StdIOHandler(handler_id, self.stdio_handler)
 			sys.stdout = redir
@@ -63,14 +61,14 @@ class MyFrame(wx.Frame):
 		print("App starting")
 
 	def stdio_handler(self, ident, string_val):
-			curr_thread = threading.current_thread()
-			if isinstance(curr_thread, OpThread) and curr_thread.is_done():
-				curr_thread.save_output(string_val)
+		curr_thread = threading.current_thread()
+		if isinstance(curr_thread, OpThread) and curr_thread.is_done():
+			curr_thread.save_output(string_val)
+		else:
+			if self.gui_thread_id == curr_thread.ident:
+				self.text_ctrl_log.WriteText(string_val)
 			else:
-				if self.gui_thread_id == curr_thread.ident:
-					self.text_ctrl_log.WriteText(string_val)
-				else:
-					wx.CallAfter(self.text_ctrl_log.WriteText, string_val)
+				wx.CallAfter(self.text_ctrl_log.WriteText, string_val)
 
 	def init_sites_panel(self):
 		for site in drupalsites.sites:
@@ -137,7 +135,6 @@ class MyFrame(wx.Frame):
 		# begin wxGlade: MyFrame.__set_properties
 		self.SetTitle("Drupal Site Maintenance")
 		self.frame_statusbar.SetStatusWidths([-1])
-		
 		self.text_ctrl_log.SetFont(wx.Font(10, wx.TELETYPE, wx.NORMAL, wx.NORMAL, 0, "Ubuntu Mono"))
 		# end wxGlade
 
@@ -251,10 +248,6 @@ class OpThread(threading.Thread):
 
 	def run(self):
 		OpThread.thread_map[threading.current_thread().ident] = self
- 		# self.move_checker = movedem.MoveChecker(self.args.dir_old, self.args.dir_new, callback=self.callback, args=self.args)
-		# if self.args.debug:
-		# 	self.move_checker.logger.setLevel(logging.DEBUG)
-		# self.move_checker.do_checks()
 		self.callback("op_start", self)
 		self.op_obj.do_cmd()
 		self.done = True

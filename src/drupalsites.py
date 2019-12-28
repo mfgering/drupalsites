@@ -115,12 +115,12 @@ class RemoteCheckCert(Operation):
 	def do_cmd(self):
 		cmd = 'curl -v \'https://{}\''.format(self.site.base_domain)
 		self.sys_cmd(cmd, print_output=False)
-		#print self.stderrdata
+		cmd_output = self.cmd_outputs[-1]
 		p = re.compile('Server certificate.*$|server certificate verification.*$', re.MULTILINE)
-		m = p.search(self.stderrdata)
-		if not m is None:
+		m = p.search(cmd_output)
+		if m is not None:
 			end_pos = m.end()
-			str2 = self.stderrdata[end_pos:]
+			str2 = cmd_output[end_pos:]
 			p = re.compile('^>', re.MULTILINE)
 			m = p.search(str2)
 			if m is not None:
