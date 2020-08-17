@@ -28,7 +28,8 @@ op_output = None
 def get_operation_output():
 	global op_output
 	if op_output is None:
-		op_output = OperationOutput()
+		#op_output = OperationOutput()
+		op_output = sys.stdout
 	return op_output
 
 def init_sites():
