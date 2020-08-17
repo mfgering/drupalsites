@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/src/drupalsites.py",
             "console": "integratedTerminal",
-            "args": ["--op", "local_update_db", "--sites", "gattishouse"]
+            "args": ["--op", "remote_to_local_restore", "--verbose", "--sites", "unrba"]
         },
         {
             "name": "Python: Current File",

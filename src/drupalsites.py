@@ -87,10 +87,12 @@ class Operation(object):
 		self.run_a_cmd(args, check_error, print_output, shell)
 
 	def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True):
+		global verbose
+		v_arg = '-v' if verbose else ''
 		if tty:
-			args = ['ssh', '-t', self.site.ssh_alias, cmd]
+			args = ['ssh', v_arg, '-t', self.site.ssh_alias, cmd]
 		else:
-			args = ['ssh', self.site.ssh_alias, cmd]
+			args = ['ssh', v_arg, self.site.ssh_alias, cmd]
 		self.run_a_cmd(args, check_error, print_output)
 
 class NoOperation(Operation):
@@ -211,7 +213,8 @@ class RemoteBackup(Operation):
 		cmd = "cd {} && [ -e {}/manual/snapshot.mysql.gz ] && rm {}/manual/snapshot.mysql.gz".format(self.site.vps_dir, self.site.bam_files, self.site.bam_files)
 		self.ssh_cmd(cmd, check_error=False)
 		cmd = "cd {} && drush --nocolor bam-backup db manual snapshot".format(self.site.vps_dir)
-		self.ssh_cmd(cmd, tty=True)
+		#self.ssh_cmd(cmd, tty=True)
+		self.ssh_cmd(cmd, tty=False)
 
 class Remote2LocalBamFiles(Operation):
 	name = 'remote_to_local_bam_files'
