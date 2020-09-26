@@ -10,7 +10,15 @@
             "request": "launch",
             "program": "${workspaceRoot}/src/drupalsites.py",
             "console": "integratedTerminal",
-            "args": ["--op", "remote_to_local_restore", "--verbose", "--sites", "unrba"]
+            "args": ["--op", "remote_backup", "--verbose", "--sites", "gattishouse"]
+        },
+        {
+            "name": "drupalsites 2",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/src/drupalsites.py",
+            "console": "integratedTerminal",
+            "args": ["--op", "remote_backup", "--sites", "gattishouse"]
         },
         {
             "name": "Python: Current File",

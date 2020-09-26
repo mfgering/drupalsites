@@ -89,11 +89,11 @@ class Operation(object):
 
 	def ssh_cmd(self, cmd, check_error = True, tty = False, print_output = True):
 		global verbose
-		v_arg = '-v' if verbose else ''
+		args = ['ssh', self.site.ssh_alias, cmd]
 		if tty:
-			args = ['ssh', v_arg, '-t', self.site.ssh_alias, cmd]
-		else:
-			args = ['ssh', v_arg, self.site.ssh_alias, cmd]
+			args.insert(1, '-t')
+		if verbose:
+			args.insert(1, '-v')
 		self.run_a_cmd(args, check_error, print_output)
 
 class NoOperation(Operation):
